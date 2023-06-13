@@ -3426,7 +3426,7 @@ public class CoreConfidenceTests extends AbstractTest {
         getClass().getClassLoader());
 
     // loading the class to prove it works
-    Class<?> er = loader.loadClass("org.drools.examples.eventing.EventRequest");
+    Class<?> er = loader.loadClass("org.mvel3.examples.eventing.EventRequest");
     assertNotNull(er);
     assertEquals("org.drools.examples.eventing.EventRequest",
         er.getCanonicalName());
