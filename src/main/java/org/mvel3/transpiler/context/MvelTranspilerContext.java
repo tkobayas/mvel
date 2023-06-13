@@ -16,7 +16,7 @@
 
 package org.mvel3.transpiler.context;
 
-import org.mvel3.transpiler.MvelCompilerException;
+import org.mvel3.transpiler.MVELTranspilerException;
 import org.mvel3.transpiler.ast.RootTypeThisExpr;
 import org.mvel3.transpiler.ast.TypedExpression;
 import org.mvel3.util.TypeResolver;
@@ -80,7 +80,7 @@ public class MvelTranspilerContext {
         try {
             return typeResolver.resolveType(name);
         } catch (ClassNotFoundException e) {
-            throw new MvelCompilerException(e);
+            throw new MVELTranspilerException(e);
         }
     }
 

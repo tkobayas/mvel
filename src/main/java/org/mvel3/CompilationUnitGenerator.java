@@ -22,6 +22,7 @@ import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
+import com.github.javaparser.ast.body.Parameter;
 import com.github.javaparser.ast.expr.ArrayAccessExpr;
 import com.github.javaparser.ast.expr.AssignExpr;
 import com.github.javaparser.ast.expr.AssignExpr.Operator;
@@ -33,10 +34,12 @@ import com.github.javaparser.ast.expr.NameExpr;
 import com.github.javaparser.ast.expr.SimpleName;
 import com.github.javaparser.ast.expr.StringLiteralExpr;
 import com.github.javaparser.ast.expr.VariableDeclarationExpr;
+import com.github.javaparser.ast.nodeTypes.NodeWithTypeParameters;
 import com.github.javaparser.ast.stmt.BlockStmt;
 import com.github.javaparser.ast.stmt.ExpressionStmt;
 import com.github.javaparser.ast.stmt.ReturnStmt;
 import com.github.javaparser.ast.stmt.Statement;
+import com.github.javaparser.ast.type.ClassOrInterfaceType;
 import com.github.javaparser.ast.type.Type;
 import org.mvel3.parser.printer.PrintUtil;
 import org.mvel3.transpiler.TranspiledResult;
@@ -44,12 +47,15 @@ import org.mvel3.transpiler.context.Declaration;
 import org.mvel3.util.StringUtils;
 
 import java.io.InputStream;
+import java.lang.reflect.Method;
+import java.util.List;
 import java.util.Map;
 
 public class CompilationUnitGenerator {
 
     private CompilationUnit template;
     private ClassOrInterfaceDeclaration evaluatorClass;
+    private MethodDeclaration methodDeclaration;
     private BlockStmt methodBody;
     private BlockStmt bindingAssignmentBlock;
     private BlockStmt mvelExecutionBlock;
@@ -61,11 +67,11 @@ public class CompilationUnitGenerator {
 
     public CompilationUnit createMapEvaluatorUnit(String originalExpression, TranspiledResult input, Map<String, Class> types) {
         loadTemplate("MapEvaluatorTemplate");
-        renameTemplateClass(originalExpression);
+        renameTemplateClass(originalExpression, "MapEvaluatorTemplate");
         clearExamples();
 
         for (Map.Entry<String, Class> entry : types.entrySet()) {
-            createContextVariableAssignments(entry);
+            createMapContextVariableAssignments(entry);
         }
 
         BlockStmt compiledMVELBlock = input.statementResults();
@@ -82,10 +88,37 @@ public class CompilationUnitGenerator {
 
     public CompilationUnit createArrayEvaluatorUnit(String originalExpression, TranspiledResult input, Declaration[] types) {
         loadTemplate("ArrayEvaluatorTemplate");
-        renameTemplateClass(originalExpression);
+        renameTemplateClass(originalExpression, "ArrayEvaluatorTemplate");
+
         clearExamples();
 
-        createContextVariableAssignments(types);
+        createArrayContextVariableAssignments(types);
+
+        BlockStmt compiledMVELBlock = input.statementResults();
+        mvelExecutionBlock.replace(compiledMVELBlock);
+
+        lastMVELStatement = lastStatementOfABlock(compiledMVELBlock);
+        lastBodyStatement = lastStatementOfABlock(methodBody);
+
+        defineLastStatement(compiledMVELBlock);
+
+        logGenerateClass();
+        return template;
+    }
+
+    public CompilationUnit createPojoEvaluatorUnit(String originalExpression, TranspiledResult input, Class contextClass, Map<String, Method> types) {
+        loadTemplate("PojoEvaluatorTemplate");
+        renameTemplateClass(originalExpression, "PojoEvaluatorTemplate");
+
+        clearExamples();
+
+        Type contextType = new ClassOrInterfaceType(contextClass.getCanonicalName());
+        evaluatorClass.getImplementedTypes(0).setTypeArguments(contextType);
+        methodDeclaration.getParameter(0).setType(contextType);
+
+        for (Map.Entry<String, Method> type : types.entrySet()) {
+            createPojoContextVariableAssignments(type);
+        }
 
         BlockStmt compiledMVELBlock = input.statementResults();
         mvelExecutionBlock.replace(compiledMVELBlock);
@@ -110,9 +143,9 @@ public class CompilationUnitGenerator {
         }
     }
 
-    private void renameTemplateClass(String originalExpression) {
+    private void renameTemplateClass(String originalExpression, String templateName) {
         String newName = String.format("Evaluator%s", StringUtils.md5Hash(originalExpression));
-        replaceSimpleNameWith(evaluatorClass, "MapEvaluatorTemplate", newName);
+        replaceSimpleNameWith(evaluatorClass, templateName, newName);
     }
 
     private void logGenerateClass() {
@@ -160,33 +193,29 @@ public class CompilationUnitGenerator {
         methodBody.addStatement(0, returnVariable);
     }
 
-    private void createContextVariableAssignments(Map.Entry<String, Class> entry) {
-
+    private void createMapContextVariableAssignments(Map.Entry<String, Class> entry) {
         String binding = entry.getKey();
-        Object contextVar = entry.getValue();
 
-        if (contextVar != null) {
-            Class<?> contextVarClass = entry.getValue();
-            if (contextVarClass != null && contextVarClass.getCanonicalName() != null) {
-                Type type = StaticJavaParser.parseType(contextVarClass.getCanonicalName());
-                VariableDeclarationExpr variable = new VariableDeclarationExpr(type, binding);
-                Expression indexMethodExpression = new CastExpr(type, new MethodCallExpr(new NameExpr("map"), "get", NodeList.nodeList(new StringLiteralExpr(binding))));
-                methodBody.addStatement(0, variable);
+        Class<?> contextVarClass = entry.getValue();
+        if (contextVarClass.getCanonicalName() != null) {
+            Type type = StaticJavaParser.parseType(contextVarClass.getCanonicalName());
+            VariableDeclarationExpr variable = new VariableDeclarationExpr(type, binding);
+            Expression indexMethodExpression = new CastExpr(type, new MethodCallExpr(new NameExpr("map"), "get", NodeList.nodeList(new StringLiteralExpr(binding))));
+            methodBody.addStatement(0, variable);
 
-                final Expression expr = new AssignExpr(new NameExpr(binding), indexMethodExpression, AssignExpr.Operator.ASSIGN);
-                bindingAssignmentBlock.addStatement(expr);
+            final Expression expr = new AssignExpr(new NameExpr(binding), indexMethodExpression, AssignExpr.Operator.ASSIGN);
+            bindingAssignmentBlock.addStatement(expr);
 
-                MethodCallExpr putExpr = new MethodCallExpr(new NameExpr("map"), "put", NodeList.nodeList(new StringLiteralExpr(binding), new NameExpr(binding)));
-                repopulateMapBlock.addStatement(putExpr);
-            }
+            MethodCallExpr putExpr = new MethodCallExpr(new NameExpr("map"), "put", NodeList.nodeList(new StringLiteralExpr(binding), new NameExpr(binding)));
+            repopulateMapBlock.addStatement(putExpr);
         }
     }
 
-    private void createContextVariableAssignments(Declaration[] types) {
+    private void createArrayContextVariableAssignments(Declaration[] types) {
         for (int i = 0; i < types.length; i++) {
             Class<?> contextVarClass = types[i].getClazz();
             String binding = types[i].getName();
-            if (contextVarClass != null && contextVarClass.getCanonicalName() != null) {
+            if (contextVarClass.getCanonicalName() != null) {
                 Type type = StaticJavaParser.parseType(contextVarClass.getCanonicalName());
                 VariableDeclarationExpr variable = new VariableDeclarationExpr(type, binding);
 
@@ -207,11 +236,31 @@ public class CompilationUnitGenerator {
         }
     }
 
+    private void createPojoContextVariableAssignments(Map.Entry<String, Method> entry) {
+
+        String binding = entry.getKey();
+        Method method = entry.getValue();
+
+        Class<?> contextVarClass = method.getReturnType();
+        if (contextVarClass.getCanonicalName() != null) {
+            Type type = StaticJavaParser.parseType(contextVarClass.getCanonicalName());
+            VariableDeclarationExpr variable = new VariableDeclarationExpr(type, binding);
+            Expression indexMethodExpression = new CastExpr(type, new MethodCallExpr(new NameExpr("pojo"), method.getName()));
+            methodBody.addStatement(0, variable);
+
+            final Expression expr = new AssignExpr(new NameExpr(binding), indexMethodExpression, AssignExpr.Operator.ASSIGN);
+            bindingAssignmentBlock.addStatement(expr);
+
+//            MethodCallExpr putExpr = new MethodCallExpr(new NameExpr("pojo"), "put", NodeList.nodeList(new StringLiteralExpr(binding), new NameExpr(binding)));
+//            repopulateMapBlock.addStatement(putExpr);
+        }
+    }
+
     private void loadTemplate(String templateName) {
-        template = getMethodTemplate();
+        template = getMethodTemplate(templateName);
         evaluatorClass = template.getClassByName(templateName)
                 .orElseThrow(() -> new RuntimeException("Cannot find class"));
-        MethodDeclaration methodDeclaration = evaluatorClass.findFirst(MethodDeclaration.class)
+        methodDeclaration = evaluatorClass.findFirst(MethodDeclaration.class)
                 .orElseThrow(() -> new RuntimeException("cannot find Method"));
         methodBody = methodDeclaration.findFirst(BlockStmt.class)
                 .orElseThrow(() -> new RuntimeException("cannot find method body"));
@@ -228,9 +277,9 @@ public class CompilationUnitGenerator {
         return block;
     }
 
-    private CompilationUnit getMethodTemplate() {
+    private CompilationUnit getMethodTemplate(String templateName) {
         InputStream resourceAsStream = this.getClass()
-                .getResourceAsStream("/org/mvel3/MapEvaluatorTemplate.java");
+                .getResourceAsStream("/org/mvel3/" + templateName + ".java");
         return StaticJavaParser.parse(resourceAsStream);
     }
 

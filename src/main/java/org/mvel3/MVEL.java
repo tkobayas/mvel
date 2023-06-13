@@ -19,18 +19,36 @@
 
 package org.mvel3;
 
+import org.mvel3.transpiler.context.Declaration;
+
 import java.util.HashMap;
 import java.util.Map;
 
 public class MVEL {
     ClassManager clsManager = new ClassManager();
 
-    public MapEvaluator compileToMapEvaluator(final String expression, final Map<String, Class> types) {
+    public MapEvaluator compileMapEvaluator(final String expression, final Map<String, Class> types) {
         MVELCompiler MVELCompiler = new MVELCompiler();
-        MapEvaluator mapEvaluator = MVELCompiler.compileAndLoad(clsManager, expression,
-                                                                types, MVELCompiler.getClass().getClassLoader());
+        MapEvaluator evaluator = MVELCompiler.compileMapEvaluator(clsManager, expression,
+                                                                  types, MVELCompiler.getClass().getClassLoader());
 
-        return  mapEvaluator;
+        return  evaluator;
+    }
+
+    public ArrayEvaluator compileArrayEvaluator(final String expression, final Declaration[] types) {
+        MVELCompiler MVELCompiler = new MVELCompiler();
+        ArrayEvaluator evaluator = MVELCompiler.compileArrayEvaluator(clsManager, expression,
+                                                                      types, MVELCompiler.getClass().getClassLoader());
+
+        return  evaluator;
+    }
+
+    public PojoEvaluator compilePojoEvaluator(final String expression, Class pojo, String[] vars) {
+        MVELCompiler MVELCompiler = new MVELCompiler();
+        PojoEvaluator evaluator = MVELCompiler.compilePojoEvaluator(clsManager, expression,
+                                                                    pojo, vars, MVELCompiler.getClass().getClassLoader());
+
+        return  evaluator;
     }
 
     public <T> T executeExpression(final String expression, final Map<String, Object> vars) {
@@ -40,9 +58,8 @@ public class MVEL {
             types.put(o.getKey(), type);
         }
 
-        MapEvaluator mapEvaluator = compileToMapEvaluator(expression, types);
+        MapEvaluator mapEvaluator = compileMapEvaluator(expression, types);
 
         return (T) mapEvaluator.eval(vars);
     }
-
 }

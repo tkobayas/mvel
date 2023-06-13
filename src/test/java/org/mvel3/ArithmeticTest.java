@@ -21,11 +21,12 @@ package org.mvel3;
 
 import org.junit.Ignore;
 import org.junit.Test;
+import org.mvel3.transpiler.context.Declaration;
 
-import java.io.Serializable;
 import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.Date;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;

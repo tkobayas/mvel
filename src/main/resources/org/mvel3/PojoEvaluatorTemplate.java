@@ -16,16 +16,16 @@
 
 package org.mvel3;
 
-public class ArrayEvaluatorTemplate implements ArrayEvaluator {
+public class PojoEvaluatorTemplate implements PojoEvaluator<Object> {
 
     @Override
-    public Object eval(Object[] array) {
+    public Object eval(Object pojo) {
         // declarations are on top
-        int usedBinding;
+        Object usedBinding;
 
         // binding assignment
         {
-            usedBinding = (int) array[0];
+            usedBinding = pojo;
         }
 
         // execute MVEL here
@@ -35,7 +35,7 @@ public class ArrayEvaluatorTemplate implements ArrayEvaluator {
 
         // repopulate map
         {
-            array[0] = usedBinding;
+            pojo = usedBinding;
         }
 
         return usedBinding;

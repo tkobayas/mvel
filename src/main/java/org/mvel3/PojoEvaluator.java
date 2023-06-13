@@ -14,15 +14,8 @@
  * limitations under the License.
  */
 
-package org.mvel3.transpiler;
+package org.mvel3;
 
-public class MvelCompilerException extends RuntimeException {
-
-    public MvelCompilerException(String message) {
-        super(message);
-    }
-
-    public MvelCompilerException(ClassNotFoundException e) {
-        super(e);
-    }
+public interface PojoEvaluator<T> {
+    <K> K eval(T pojo);
 }

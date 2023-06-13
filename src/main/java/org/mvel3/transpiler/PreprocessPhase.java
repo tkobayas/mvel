@@ -163,7 +163,7 @@ public class PreprocessPhase {
 
     private void throwExceptionIfSameDrlName(Expression target, Expression scope) {
         if (isSameDrlName(target, scope)) {
-            throw new MvelCompilerException("Invalid modify statement: " + PrintUtil.printNode(target));
+            throw new MVELTranspilerException("Invalid modify statement: " + PrintUtil.printNode(target));
         }
     }
 
@@ -206,7 +206,7 @@ public class PreprocessPhase {
             replaceRootExprWithFieldAccess(scope, (DrlNameExpr) rootScope);
             return assignExpr;
         } else {
-            throw new MvelCompilerException("Unexpected target: " + target.getClass() + ", assignExpr: " + PrintUtil.printNode(assignExpr));
+            throw new MVELTranspilerException("Unexpected target: " + target.getClass() + ", assignExpr: " + PrintUtil.printNode(assignExpr));
         }
     }
 
@@ -221,10 +221,10 @@ public class PreprocessPhase {
             } else if (rootParent instanceof MethodCallExpr) {
                 ((MethodCallExpr)rootParent).setScope(fieldAccessWithScope);
             } else {
-                throw new MvelCompilerException(String.format("Unexpected rootParent: %s, rootExpr: %s", rootParent.getClass(), PrintUtil.printNode(rootExpr)));
+                throw new MVELTranspilerException(String.format("Unexpected rootParent: %s, rootExpr: %s", rootParent.getClass(), PrintUtil.printNode(rootExpr)));
             }
         } else {
-            throw new MvelCompilerException(String.format("rootExpr doesn't have a parent: %s, rootExpr: %s", rootExpr.getClass(), PrintUtil.printNode(rootExpr)));
+            throw new MVELTranspilerException(String.format("rootExpr doesn't have a parent: %s, rootExpr: %s", rootExpr.getClass(), PrintUtil.printNode(rootExpr)));
         }
     }
 

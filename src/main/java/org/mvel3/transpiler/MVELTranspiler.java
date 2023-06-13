@@ -35,13 +35,13 @@ import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.toList;
 
-public class MvelTranspiler {
+public class MVELTranspiler {
 
     private final PreprocessPhase preprocessPhase = new PreprocessPhase();
     private final StatementVisitor statementVisitor;
     private MvelTranspilerContext mvelTranspilerContext;
 
-    public MvelTranspiler(MvelTranspilerContext mvelTranspilerContext) {
+    public MVELTranspiler(MvelTranspilerContext mvelTranspilerContext) {
         this.statementVisitor = new StatementVisitor(mvelTranspilerContext);
         this.mvelTranspilerContext = mvelTranspilerContext;
     }
@@ -65,7 +65,7 @@ public class MvelTranspiler {
             context.addDeclaration(o.getKey(), o.getValue());
         }
 
-        MvelTranspiler mvelTranspiler = new MvelTranspiler(context);
+        MVELTranspiler mvelTranspiler = new MVELTranspiler(context);
         ConstraintTranspiler constraintTranspiler = new ConstraintTranspiler(context);
 
         if (isAStatement(expressionString)) {
@@ -110,7 +110,7 @@ public class MvelTranspiler {
         Node javaRoot = compiledRoot.toJavaExpression();
 
         if(!(javaRoot instanceof BlockStmt)) {
-            throw new MvelCompilerException("With a BlockStmt as a input I was expecting a BlockStmt output");
+            throw new MVELTranspilerException("With a BlockStmt as a input I was expecting a BlockStmt output");
         }
 
         BlockStmt compiledBlockStatement = (BlockStmt) javaRoot;

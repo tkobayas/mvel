@@ -95,7 +95,7 @@ public class LHSPhase implements DrlGenericVisitor<TypedExpression, Void> {
 
         TypedExpression typedExpression = n.accept(this, null);
         if (typedExpression == null) {
-            throw new MvelCompilerException("Type check of " + printNode(n) + " failed.");
+            throw new MVELTranspilerException("Type check of " + printNode(n) + " failed.");
         }
         //logger.debug("LHS phase completed");
         return typedExpression;
@@ -179,7 +179,7 @@ public class LHSPhase implements DrlGenericVisitor<TypedExpression, Void> {
                                                               String accessorName,
                                                               AssignExpr parentAssignExpr) {
 
-        Class<?> scopeType = (Class<?>) fieldAccessScope.getType().orElseThrow(() -> new MvelCompilerException("Scope without a type"));
+        Class<?> scopeType = (Class<?>) fieldAccessScope.getType().orElseThrow(() -> new MVELTranspilerException("Scope without a type"));
 
         Optional<Method> optSetter = ofNullable(getSetter( scopeType, accessorName, BigDecimal.class));
         AssignExpr.Operator parentOperator = parentAssignExpr.getOperator();
@@ -208,7 +208,7 @@ public class LHSPhase implements DrlGenericVisitor<TypedExpression, Void> {
         String bigDecimalArithmeticMethod = BigDecimalArithmeticExprT.toBigDecimalMethod(parentOperator);
 
         Method optGetter = ofNullable(getAccessor(scopeType, accessorName))
-                .orElseThrow(() -> new MvelCompilerException("No getter found but setter is present for accessor: " + accessorName));
+                .orElseThrow(() -> new MVELTranspilerException("No getter found but setter is present for accessor: " + accessorName));
 
         FieldToAccessorTExpr getterExpression = new FieldToAccessorTExpr(fieldAccessScope, optGetter, emptyList());
         TypedExpression argument = rhsOrError();
@@ -232,7 +232,7 @@ public class LHSPhase implements DrlGenericVisitor<TypedExpression, Void> {
         BinaryExpr.Operator operator = BinaryExprT.compoundToArithmeticOperation(parentOperator);
 
         Method optGetter = ofNullable(getAccessor(scopeType, accessorName))
-                .orElseThrow(() -> new MvelCompilerException("No getter found but setter is present for accessor: " + accessorName));
+                .orElseThrow(() -> new MVELTranspilerException("No getter found but setter is present for accessor: " + accessorName));
 
         FieldToAccessorTExpr getterExpression = new FieldToAccessorTExpr(fieldAccessScope, optGetter, emptyList());
         TypedExpression argument = rhsOrError();
@@ -362,7 +362,7 @@ public class LHSPhase implements DrlGenericVisitor<TypedExpression, Void> {
     }
 
     private TypedExpression rhsOrError() {
-        return rhs.orElseThrow(() -> new MvelCompilerException("RHS not found, need a valid expression"));
+        return rhs.orElseThrow(() -> new MVELTranspilerException("RHS not found, need a valid expression"));
     }
 
     /*
@@ -380,7 +380,7 @@ public class LHSPhase implements DrlGenericVisitor<TypedExpression, Void> {
         return rhs
                 .flatMap(TypedExpression::getType)
                 .map(ClassUtils::classFromType)
-                .orElseThrow(() -> new MvelCompilerException("RHS doesn't have a type"));
+                .orElseThrow(() -> new MVELTranspilerException("RHS doesn't have a type"));
     }
 
     private Class<?> getRHSorLHSType(VariableDeclarator n) {

@@ -14,31 +14,15 @@
  * limitations under the License.
  */
 
-package org.mvel3;
+package org.mvel3.transpiler;
 
-public class ArrayEvaluatorTemplate implements ArrayEvaluator {
+public class MVELTranspilerException extends RuntimeException {
 
-    @Override
-    public Object eval(Object[] array) {
-        // declarations are on top
-        int usedBinding;
-
-        // binding assignment
-        {
-            usedBinding = (int) array[0];
-        }
-
-        // execute MVEL here
-        {
-
-        }
-
-        // repopulate map
-        {
-            array[0] = usedBinding;
-        }
-
-        return usedBinding;
+    public MVELTranspilerException(String message) {
+        super(message);
     }
 
+    public MVELTranspilerException(ClassNotFoundException e) {
+        super(e);
+    }
 }

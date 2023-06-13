@@ -17,7 +17,7 @@
 package org.mvel3;
 
 import org.mvel3.transpiler.TranspiledBlockResult;
-import org.mvel3.transpiler.MvelTranspiler;
+import org.mvel3.transpiler.MVELTranspiler;
 import org.mvel3.transpiler.context.MvelTranspilerContext;
 import org.mvel3.util.ClassTypeResolver;
 import org.mvel3.util.TypeResolver;
@@ -48,7 +48,7 @@ interface TranspilerTest {
         TypeResolver typeResolver = new ClassTypeResolver(imports, this.getClass().getClassLoader());
         MvelTranspilerContext mvelTranspilerContext = new MvelTranspilerContext(typeResolver);
         testFunction.accept(mvelTranspilerContext);
-        TranspiledBlockResult compiled = new MvelTranspiler(mvelTranspilerContext).transpileStatement(inputExpression);
+        TranspiledBlockResult compiled = new MVELTranspiler(mvelTranspilerContext).transpileStatement(inputExpression);
         verifyBodyWithBetterDiff(expectedResult, compiled.resultAsString());
         resultAssert.accept(compiled);
     }

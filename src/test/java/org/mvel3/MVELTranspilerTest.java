@@ -25,7 +25,7 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class MvelTranspilerTest implements TranspilerTest {
+public class MVELTranspilerTest implements TranspilerTest {
 
     @Test
     public void testAssignmentIncrement() {

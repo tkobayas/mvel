@@ -22,36 +22,111 @@ import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.expr.Name;
 import org.mvel3.javacompiler.KieMemoryCompiler;
 import org.mvel3.parser.printer.PrintUtil;
-import org.mvel3.transpiler.MvelTranspiler;
+import org.mvel3.transpiler.MVELTranspiler;
 import org.mvel3.transpiler.TranspiledResult;
+import org.mvel3.transpiler.context.Declaration;
+import org.mvel3.util.StringUtils;
 
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public class MVELCompiler {
 
 
-    public MapEvaluator compileAndLoad(ClassManager classManager,
-                                       Object expression, Map<String, Class> types,
-                                       ClassLoader classLoader) {
-        CompilationUnit unit = compile((String) expression, types, classLoader);
+    public MapEvaluator compileMapEvaluator(ClassManager classManager,
+                                            String expression, Map<String, Class> types,
+                                            ClassLoader classLoader) {
+        CompilationUnit unit = compileMapEvaluatorNoLoad(expression, types, classLoader);
 
+		return compileEvaluator(classManager, classLoader, unit);
+	}
+    public ArrayEvaluator compileArrayEvaluator(ClassManager classManager, String expression, Declaration[] types, ClassLoader classLoader) {
+        CompilationUnit unit = compileArrayEvaluatorNoLoad(expression, types, classLoader);
+
+        return compileEvaluator(classManager, classLoader, unit);
+    }
+
+    public PojoEvaluator compilePojoEvaluator(ClassManager classManager, String expression, Class pojoClass, String[] vars, ClassLoader classLoader) {
+        CompilationUnit unit = compilePojoEvaluatorNoLoad(expression, pojoClass, vars, classLoader);
+
+        return compileEvaluator(classManager, classLoader, unit);
+    }
+
+    private <T> T compileEvaluator(ClassManager classManager, ClassLoader classLoader, CompilationUnit unit) {
         String javaFQN = evaluatorFullQualifiedName(unit);
 
         compileEvaluatorClass(classManager, classLoader, unit, javaFQN);
 
-        Class<?> evaluatorDefinition = classManager.getClass(javaFQN);
-        MapEvaluator evaluator = createMapEvaluatorInstance(evaluatorDefinition);
-		return evaluator;
-	}
+        Class<T> evaluatorDefinition = classManager.getClass(javaFQN);
+        T evaluator = createEvaluatorInstance(evaluatorDefinition);
+        return evaluator;
+    }
 
-    public CompilationUnit compile(String expression,
-                                   Map<String, Class> types,
-                                   ClassLoader classLoader) {
-        TranspiledResult input = MvelTranspiler.transpile(expression, types, classLoader);
+    public CompilationUnit compileMapEvaluatorNoLoad(String expression,
+                                                     Map<String, Class> types,
+                                                     ClassLoader classLoader) {
+        TranspiledResult input = MVELTranspiler.transpile(expression, types, classLoader);
 
         return new CompilationUnitGenerator().createMapEvaluatorUnit(expression, input, types);
+    }
+
+    public CompilationUnit compileArrayEvaluatorNoLoad(String expression,
+                                                       Declaration[] types,
+                                                       ClassLoader classLoader) {
+
+        Map<String, Class> map = Arrays.stream(types).collect(Collectors.toMap(v -> v.getName(), v -> v.getClazz()));
+        TranspiledResult input = MVELTranspiler.transpile(expression, map, classLoader);
+
+        return new CompilationUnitGenerator().createArrayEvaluatorUnit(expression, input, types);
+    }
+
+    public CompilationUnit compilePojoEvaluatorNoLoad(String expression,
+                                                      Class contextClass,
+                                                      String[] vars,
+                                                      ClassLoader classLoader) {
+
+        //Map<String, Class> map = Arrays.stream(types).collect(Collectors.toMap(v -> v.getName(), v -> v.getClazz()));
+
+        Map<String, Class> map = new HashMap<>();
+        Map<String, Method> methods = new HashMap<>();
+        for (String var : vars) {
+            Method method = getMethod(contextClass, var);
+
+            if (method == null) {
+                throw new RuntimeException("Unable to determine type for variable '" + var + "'");
+            }
+            methods.put(var, method);
+            map.put(var, method.getReturnType());
+        }
+
+        TranspiledResult input = MVELTranspiler.transpile(expression, map, classLoader);
+
+        return new CompilationUnitGenerator().createPojoEvaluatorUnit(expression, input, contextClass, methods);
+    }
+
+    public Method getMethod(Class contextClass, String var)  {
+        Method method = null;
+        try {
+            String getterName = "get" + StringUtils.ucFirst(var);
+            method = contextClass.getMethod(getterName);
+        } catch (NoSuchMethodException e) {
+            // swallow
+        }
+
+        try {
+            method = contextClass.getMethod(var);
+        } catch (NoSuchMethodException e) {
+            // swallow
+        }
+
+        return method;
     }
 
 
@@ -66,10 +141,10 @@ public class MVELCompiler {
         return String.format("%s.%s", packageName, evaluatorClassName);
     }
 
-    private MapEvaluator createMapEvaluatorInstance(Class<?> evaluatorDefinition) {
-        MapEvaluator evaluator;
+    private <T> T createEvaluatorInstance(Class<T> evaluatorDefinition) {
+        T evaluator;
         try {
-            evaluator = (MapEvaluator) evaluatorDefinition.getConstructor().newInstance();
+            evaluator = (T) evaluatorDefinition.getConstructor().newInstance();
         } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
             throw new RuntimeException(e);
         }
