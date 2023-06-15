@@ -83,6 +83,6 @@ interface TranspilerTest {
     }
 
     default Collection<String> allUsedBindings(TranspiledBlockResult result) {
-        return new ArrayList<>(result.getUsedBindings());
+        return new ArrayList<>(result.getInputs());
     }
 }

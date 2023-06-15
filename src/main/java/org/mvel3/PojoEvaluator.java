@@ -16,6 +16,6 @@
 
 package org.mvel3;
 
-public interface PojoEvaluator<T> {
-    <K> K eval(T pojo);
+public interface PojoEvaluator<T, R> {
+    R eval(T pojo);
 }

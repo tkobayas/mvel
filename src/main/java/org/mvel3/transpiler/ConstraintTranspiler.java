@@ -40,12 +40,17 @@ public class ConstraintTranspiler {
     }
 
     public TranspiledExpressionResult compileExpression(Expression parsedExpression) {
+        VariableAnalyser analyser = new VariableAnalyser();
+        parsedExpression.accept(analyser, null);
+
+
         // Avoid processing the LHS as it's not present while compiling an expression
         TypedExpression compiled = new RHSPhase(mvelTranspilerContext).invoke(parsedExpression);
 
+
+
         Expression expression = (Expression) compiled.toJavaExpression();
 
-        return new TranspiledExpressionResult(expression, compiled.getType())
-                .setUsedBindings(mvelTranspilerContext.getUsedBindings());
+        return new TranspiledExpressionResult(expression, compiled.getType(), analyser.getInputs());
     }
 }

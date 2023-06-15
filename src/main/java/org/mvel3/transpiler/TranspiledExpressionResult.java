@@ -32,11 +32,13 @@ public class TranspiledExpressionResult implements TranspiledResult {
 
     private Expression expression;
     private Optional<Type> type;
-    private Set<String> usedBindings = new HashSet<>();
 
-    public TranspiledExpressionResult(Expression expression, Optional<Type> type) {
+    private Set<String> inputs = new HashSet<>();
+
+    public TranspiledExpressionResult(Expression expression, Optional<Type> type, Set<String> inputs) {
         this.expression = expression;
         this.type = type;
+        this.inputs = inputs;
     }
 
     public Expression getExpression() {
@@ -57,13 +59,8 @@ public class TranspiledExpressionResult implements TranspiledResult {
     }
 
     @Override
-    public Set<String> getUsedBindings() {
-        return usedBindings;
-    }
-
-    public TranspiledExpressionResult setUsedBindings(Set<String> usedBindings) {
-        this.usedBindings = usedBindings;
-        return this;
+    public Set<String> getInputs() {
+        return inputs;
     }
 
 }

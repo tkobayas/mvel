@@ -27,26 +27,28 @@ import java.util.Map;
 public class MVEL {
     ClassManager clsManager = new ClassManager();
 
-    public MapEvaluator compileMapEvaluator(final String expression, final Map<String, Class> types) {
+    public MapEvaluator compileMapEvaluator(final String expression, final Map<String, Class> types, String... returnVars) {
         MVELCompiler MVELCompiler = new MVELCompiler();
         MapEvaluator evaluator = MVELCompiler.compileMapEvaluator(clsManager, expression,
-                                                                  types, MVELCompiler.getClass().getClassLoader());
+                                                                  types, MVELCompiler.getClass().getClassLoader(), returnVars);
 
         return  evaluator;
     }
 
-    public ArrayEvaluator compileArrayEvaluator(final String expression, final Declaration[] types) {
+    public ArrayEvaluator compileArrayEvaluator(final String expression, final Declaration[] types, String... returnVars) {
         MVELCompiler MVELCompiler = new MVELCompiler();
         ArrayEvaluator evaluator = MVELCompiler.compileArrayEvaluator(clsManager, expression,
-                                                                      types, MVELCompiler.getClass().getClassLoader());
+                                                                      types, MVELCompiler.getClass().getClassLoader(),
+                                                                      returnVars);
 
         return  evaluator;
     }
 
-    public PojoEvaluator compilePojoEvaluator(final String expression, Class pojo, String[] vars) {
+    public <T, R> PojoEvaluator<T,R> compilePojoEvaluator(final String expression, Class<T> contextClass, Class<R> returnClass, String... vars) {
         MVELCompiler MVELCompiler = new MVELCompiler();
         PojoEvaluator evaluator = MVELCompiler.compilePojoEvaluator(clsManager, expression,
-                                                                    pojo, vars, MVELCompiler.getClass().getClassLoader());
+                                                                    contextClass, returnClass, vars,
+                                                                    MVELCompiler.getClass().getClassLoader());
 
         return  evaluator;
     }

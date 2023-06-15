@@ -29,11 +29,9 @@ import org.mvel3.util.StringUtils;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -42,19 +40,20 @@ public class MVELCompiler {
 
     public MapEvaluator compileMapEvaluator(ClassManager classManager,
                                             String expression, Map<String, Class> types,
-                                            ClassLoader classLoader) {
-        CompilationUnit unit = compileMapEvaluatorNoLoad(expression, types, classLoader);
+                                            ClassLoader classLoader, String... returnVars) {
+        CompilationUnit unit = compileMapEvaluatorNoLoad(expression, types, classLoader, returnVars);
 
 		return compileEvaluator(classManager, classLoader, unit);
 	}
-    public ArrayEvaluator compileArrayEvaluator(ClassManager classManager, String expression, Declaration[] types, ClassLoader classLoader) {
-        CompilationUnit unit = compileArrayEvaluatorNoLoad(expression, types, classLoader);
+    public ArrayEvaluator compileArrayEvaluator(ClassManager classManager, String expression, Declaration[] types,
+                                                ClassLoader classLoader, String... returnVars) {
+        CompilationUnit unit = compileArrayEvaluatorNoLoad(expression, types, classLoader, returnVars);
 
         return compileEvaluator(classManager, classLoader, unit);
     }
 
-    public PojoEvaluator compilePojoEvaluator(ClassManager classManager, String expression, Class pojoClass, String[] vars, ClassLoader classLoader) {
-        CompilationUnit unit = compilePojoEvaluatorNoLoad(expression, pojoClass, vars, classLoader);
+    public PojoEvaluator compilePojoEvaluator(ClassManager classManager, String expression, Class contextClass, Class returnClass, String[] vars, ClassLoader classLoader) {
+        CompilationUnit unit = compilePojoEvaluatorNoLoad(expression, contextClass, returnClass, vars, classLoader);
 
         return compileEvaluator(classManager, classLoader, unit);
     }
@@ -71,25 +70,26 @@ public class MVELCompiler {
 
     public CompilationUnit compileMapEvaluatorNoLoad(String expression,
                                                      Map<String, Class> types,
-                                                     ClassLoader classLoader) {
+                                                     ClassLoader classLoader,
+                                                     String... returnVars) {
         TranspiledResult input = MVELTranspiler.transpile(expression, types, classLoader);
 
-        return new CompilationUnitGenerator().createMapEvaluatorUnit(expression, input, types);
+        return new CompilationUnitGenerator().createMapEvaluatorUnit(expression, input, types, returnVars);
     }
 
     public CompilationUnit compileArrayEvaluatorNoLoad(String expression,
                                                        Declaration[] types,
-                                                       ClassLoader classLoader) {
+                                                       ClassLoader classLoader,
+                                                       String... returnVars) {
 
-        Map<String, Class> map = Arrays.stream(types).collect(Collectors.toMap(v -> v.getName(), v -> v.getClazz()));
-        TranspiledResult input = MVELTranspiler.transpile(expression, map, classLoader);
+        Map<String, Class> typeMap = Arrays.stream(types).collect(Collectors.toMap(v -> v.getName(), v -> v.getClazz()));
+        TranspiledResult input = MVELTranspiler.transpile(expression, typeMap, classLoader);
 
-        return new CompilationUnitGenerator().createArrayEvaluatorUnit(expression, input, types);
+        return new CompilationUnitGenerator().createArrayEvaluatorUnit(expression, input, types, returnVars);
     }
 
     public CompilationUnit compilePojoEvaluatorNoLoad(String expression,
-                                                      Class contextClass,
-                                                      String[] vars,
+                                                      Class contextClass, Class returnClass, String[] vars,
                                                       ClassLoader classLoader) {
 
         //Map<String, Class> map = Arrays.stream(types).collect(Collectors.toMap(v -> v.getName(), v -> v.getClazz()));
@@ -108,7 +108,7 @@ public class MVELCompiler {
 
         TranspiledResult input = MVELTranspiler.transpile(expression, map, classLoader);
 
-        return new CompilationUnitGenerator().createPojoEvaluatorUnit(expression, input, contextClass, methods);
+        return new CompilationUnitGenerator().createPojoEvaluatorUnit(expression, input, contextClass, returnClass, methods);
     }
 
     public Method getMethod(Class contextClass, String var)  {

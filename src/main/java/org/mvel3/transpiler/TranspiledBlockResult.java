@@ -29,10 +29,12 @@ import static org.mvel3.parser.printer.PrintUtil.printNode;
 public class TranspiledBlockResult implements TranspiledResult {
 
     private List<Statement> statements;
-    private Set<String> usedBindings = new HashSet<>();
 
-    public TranspiledBlockResult(List<Statement> statements) {
+    private Set<String> inputs = new HashSet<>();
+
+    public TranspiledBlockResult(List<Statement> statements, Set<String> inputs) {
         this.statements = statements;
+        this.inputs = inputs;
     }
 
     public String resultAsString() {
@@ -44,14 +46,9 @@ public class TranspiledBlockResult implements TranspiledResult {
         return new BlockStmt(NodeList.nodeList(statements));
     }
 
-    public TranspiledBlockResult setUsedBindings(Set<String> usedBindings) {
-        this.usedBindings = usedBindings;
-        return this;
-    }
-
     @Override
-    public Set<String> getUsedBindings() {
-        return usedBindings;
+    public Set<String> getInputs() {
+        return inputs;
     }
 
     @Override

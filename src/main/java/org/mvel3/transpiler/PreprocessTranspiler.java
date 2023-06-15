@@ -43,6 +43,9 @@ public class PreprocessTranspiler {
 
         BlockStmt mvelExpression = MvelParser.parseBlock(mvelBlock);
 
+        VariableAnalyser analyser = new VariableAnalyser();
+        mvelExpression.accept(analyser, null);
+
         preprocessPhase.removeEmptyStmt(mvelExpression);
 
         mvelExpression.findAll(TextBlockLiteralExpr.class).forEach(e -> {
@@ -75,6 +78,6 @@ public class PreprocessTranspiler {
                     s.remove();
                 });
 
-        return new TranspiledBlockResult(mvelExpression.getStatements()).setUsedBindings(usedBindings);
+        return new TranspiledBlockResult(mvelExpression.getStatements(), analyser.getInputs());
     }
 }

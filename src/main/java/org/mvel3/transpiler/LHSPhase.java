@@ -110,8 +110,8 @@ public class LHSPhase implements DrlGenericVisitor<TypedExpression, Void> {
 
         return declaration.<TypedExpression>map(d -> new SimpleNameTExpr(n.getNameAsString(), d.getClazz()))
                 .orElseGet(() -> {
-                    mvelTranspilerContext.addDeclaration(variableName, getRHSType());
-                    return new VariableDeclaratorTExpr(n, variableName, getRHSType(), rhs);
+                    mvelTranspilerContext.addDeclaration(variableName, getRHSType(rhs));
+                    return new VariableDeclaratorTExpr(n, variableName, getRHSType(rhs), rhs);
                 });
     }
 
@@ -133,12 +133,12 @@ public class LHSPhase implements DrlGenericVisitor<TypedExpression, Void> {
         } else if(parentIsArrayAccessExpr(n)) {
             return tryParseItAsMap(n, fieldAccessScope)
                     .map(Optional::of)
-                    .orElseGet(() -> tryParseItAsSetter(n, fieldAccessScope, getRHSType()))
+                    .orElseGet(() -> tryParseItAsSetter(n, fieldAccessScope, getRHSType(rhs)))
                     .orElse(new UnalteredTypedExpression(n));
         } else {
             return tryParseAsArithmeticExpression(n, fieldAccessScope)
                     .map(Optional::of)
-                    .orElseGet(() -> tryParseItAsSetter(n, fieldAccessScope, getRHSType()))
+                    .orElseGet(() -> tryParseItAsSetter(n, fieldAccessScope, getRHSType(rhs)))
                     .orElse(new UnalteredTypedExpression(n));
         }
     }
@@ -152,7 +152,7 @@ public class LHSPhase implements DrlGenericVisitor<TypedExpression, Void> {
 
 
     // Conversion of AssignExpr to BigDecimal Arithmetic operation when LHS is is a BigDecimal variable
-    public Optional<TypedExpression> withBigDecimalConversion(AssignExpr assignExpr,
+    public static Optional<TypedExpression> withBigDecimalConversion(AssignExpr assignExpr,
                                                               TypedExpression target,
                                                               TypedExpression value) {
 
@@ -376,7 +376,7 @@ public class LHSPhase implements DrlGenericVisitor<TypedExpression, Void> {
         return n.getParentNode().filter(p -> p instanceof ArrayAccessExpr).isPresent();
     }
 
-    private Class<?> getRHSType() {
+    public static Class<?> getRHSType(Optional<TypedExpression> rhs) {
         return rhs
                 .flatMap(TypedExpression::getType)
                 .map(ClassUtils::classFromType)

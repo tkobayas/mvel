@@ -47,7 +47,6 @@ public class MVELTranspiler {
     }
 
     public static TranspiledResult transpile(Object expression, Map<String, Class> types, ClassLoader classLoader) {
-
         String expressionString = expression.toString();
 
         Set<String> imports = new HashSet<>();
@@ -68,12 +67,15 @@ public class MVELTranspiler {
         MVELTranspiler mvelTranspiler = new MVELTranspiler(context);
         ConstraintTranspiler constraintTranspiler = new ConstraintTranspiler(context);
 
+        TranspiledResult transpiledResult;
         if (isAStatement(expressionString)) {
             String expressionStringWithBraces = String.format("{%s}", expressionString);
-            return mvelTranspiler.transpileStatement(expressionStringWithBraces);
+            transpiledResult =  mvelTranspiler.transpileStatement(expressionStringWithBraces);
         } else {
-            return constraintTranspiler.compileExpression(expressionString);
+            transpiledResult =  constraintTranspiler.compileExpression(expressionString);
         }
+
+        return transpiledResult;
     }
 
     private static boolean isAStatement(String expressionString) {
@@ -92,6 +94,10 @@ public class MVELTranspiler {
 
         BlockStmt mvelExpression = MvelParser.parseBlock(mvelBlock);
 
+        VariableAnalyser analyser = new VariableAnalyser();
+        mvelExpression.accept(analyser, null);
+
+
         preprocessPhase.removeEmptyStmt(mvelExpression);
 
         Set<String> allUsedBindings = new HashSet<>();
@@ -105,7 +111,7 @@ public class MVELTranspiler {
 
         // Entry point of the compiler
         TypedExpression compiledRoot = mvelExpression.accept(statementVisitor, null);
-        allUsedBindings.addAll(mvelTranspilerContext.getUsedBindings());
+        allUsedBindings.addAll(analyser.getInputs());
 
         Node javaRoot = compiledRoot.toJavaExpression();
 
@@ -114,8 +120,7 @@ public class MVELTranspiler {
         }
 
         BlockStmt compiledBlockStatement = (BlockStmt) javaRoot;
-        return new TranspiledBlockResult(compiledBlockStatement.getStatements())
-                .setUsedBindings(allUsedBindings);
+        return new TranspiledBlockResult(compiledBlockStatement.getStatements(), analyser.getInputs());
     }
 
     private Stream<String> transformStatementWithPreprocessing(Statement s) {

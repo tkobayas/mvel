@@ -55,6 +55,10 @@ public class MvelTranspilerContext {
         this.scopeSuffix = isEmpty( scopeSuffix ) ? null : scopeSuffix;
     }
 
+    public TypeResolver getTypeResolver() {
+        return typeResolver;
+    }
+
     public MvelTranspilerContext addDeclaration(String name, Class<?> clazz) {
         declarations.put(name, new Declaration(name, clazz));
         return this;

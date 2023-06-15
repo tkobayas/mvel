@@ -22,7 +22,6 @@ import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
-import com.github.javaparser.ast.body.Parameter;
 import com.github.javaparser.ast.expr.ArrayAccessExpr;
 import com.github.javaparser.ast.expr.AssignExpr;
 import com.github.javaparser.ast.expr.AssignExpr.Operator;
@@ -34,7 +33,6 @@ import com.github.javaparser.ast.expr.NameExpr;
 import com.github.javaparser.ast.expr.SimpleName;
 import com.github.javaparser.ast.expr.StringLiteralExpr;
 import com.github.javaparser.ast.expr.VariableDeclarationExpr;
-import com.github.javaparser.ast.nodeTypes.NodeWithTypeParameters;
 import com.github.javaparser.ast.stmt.BlockStmt;
 import com.github.javaparser.ast.stmt.ExpressionStmt;
 import com.github.javaparser.ast.stmt.ReturnStmt;
@@ -48,8 +46,11 @@ import org.mvel3.util.StringUtils;
 
 import java.io.InputStream;
 import java.lang.reflect.Method;
-import java.util.List;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
 
 public class CompilationUnitGenerator {
 
@@ -65,14 +66,12 @@ public class CompilationUnitGenerator {
 
     private static final String RESULT_VALUE_REFERENCE_NAME = "___resultValue";
 
-    public CompilationUnit createMapEvaluatorUnit(String originalExpression, TranspiledResult input, Map<String, Class> types) {
+    public CompilationUnit createMapEvaluatorUnit(String originalExpression, TranspiledResult input, Map<String, Class> types, String... returnVars) {
         loadTemplate("MapEvaluatorTemplate");
         renameTemplateClass(originalExpression, "MapEvaluatorTemplate");
         clearExamples();
 
-        for (Map.Entry<String, Class> entry : types.entrySet()) {
-            createMapContextVariableAssignments(entry);
-        }
+        createMapContextVariableAssignments(types.entrySet(), input.getInputs(), returnVars);
 
         BlockStmt compiledMVELBlock = input.statementResults();
         mvelExecutionBlock.replace(compiledMVELBlock);
@@ -80,19 +79,20 @@ public class CompilationUnitGenerator {
         lastMVELStatement = lastStatementOfABlock(compiledMVELBlock);
         lastBodyStatement = lastStatementOfABlock(methodBody);
 
-        defineLastStatement(compiledMVELBlock);
+        defineLastStatement(compiledMVELBlock, Object.class);
 
         logGenerateClass();
         return template;
     }
 
-    public CompilationUnit createArrayEvaluatorUnit(String originalExpression, TranspiledResult input, Declaration[] types) {
+    public CompilationUnit createArrayEvaluatorUnit(String originalExpression, TranspiledResult input,
+                                                    Declaration[] types, String... returnVars) {
         loadTemplate("ArrayEvaluatorTemplate");
         renameTemplateClass(originalExpression, "ArrayEvaluatorTemplate");
 
         clearExamples();
 
-        createArrayContextVariableAssignments(types);
+        createArrayContextVariableAssignments(types, returnVars);
 
         BlockStmt compiledMVELBlock = input.statementResults();
         mvelExecutionBlock.replace(compiledMVELBlock);
@@ -100,21 +100,25 @@ public class CompilationUnitGenerator {
         lastMVELStatement = lastStatementOfABlock(compiledMVELBlock);
         lastBodyStatement = lastStatementOfABlock(methodBody);
 
-        defineLastStatement(compiledMVELBlock);
+        defineLastStatement(compiledMVELBlock, Object.class);
 
         logGenerateClass();
         return template;
     }
 
-    public CompilationUnit createPojoEvaluatorUnit(String originalExpression, TranspiledResult input, Class contextClass, Map<String, Method> types) {
+    public CompilationUnit createPojoEvaluatorUnit(String originalExpression, TranspiledResult input,
+                                                   Class contextClass, Class returnClass, Map<String, Method> types) {
         loadTemplate("PojoEvaluatorTemplate");
         renameTemplateClass(originalExpression, "PojoEvaluatorTemplate");
 
         clearExamples();
 
         Type contextType = new ClassOrInterfaceType(contextClass.getCanonicalName());
-        evaluatorClass.getImplementedTypes(0).setTypeArguments(contextType);
+        Type returnType = new ClassOrInterfaceType(returnClass.getCanonicalName());
+        evaluatorClass.getImplementedTypes(0).setTypeArguments(contextType, returnType);
         methodDeclaration.getParameter(0).setType(contextType);
+        methodDeclaration.setType(returnClass.getCanonicalName());
+
 
         for (Map.Entry<String, Method> type : types.entrySet()) {
             createPojoContextVariableAssignments(type);
@@ -126,7 +130,7 @@ public class CompilationUnitGenerator {
         lastMVELStatement = lastStatementOfABlock(compiledMVELBlock);
         lastBodyStatement = lastStatementOfABlock(methodBody);
 
-        defineLastStatement(compiledMVELBlock);
+        defineLastStatement(compiledMVELBlock, returnClass);
 
         logGenerateClass();
         return template;
@@ -154,14 +158,15 @@ public class CompilationUnitGenerator {
     }
 
     // Simulate "Last expression is a return statement"
-    private void defineLastStatement(BlockStmt mvelBlock) {
-        if (!lastMVELStatement.isExpressionStmt()) {
-            return;
+    private void defineLastStatement(BlockStmt mvelBlock, Class returnClass) {
+        Expression expression;
+        if (lastMVELStatement.isReturnStmt()) {
+            expression = ((ReturnStmt)lastMVELStatement).getExpression().get();
+        } else {
+            expression = lastMVELStatement.asExpressionStmt().getExpression();
         }
 
-        Expression expression = lastMVELStatement.asExpressionStmt().getExpression();
-
-        addResultReference();
+        addResultReference(returnClass);
 
         if(expression.isMethodCallExpr() && expression.asMethodCallExpr().getNameAsString().startsWith("set")) {
             lastStatementIsGetter(mvelBlock, expression);
@@ -187,31 +192,42 @@ public class CompilationUnitGenerator {
         lastBodyStatement.replace(node);
     }
 
-    private void addResultReference() {
-        VariableDeclarationExpr returnVariable = new VariableDeclarationExpr(StaticJavaParser.parseType(Object.class.getCanonicalName()),
+    private void addResultReference(Class returnClass) {
+        VariableDeclarationExpr returnVariable = new VariableDeclarationExpr(StaticJavaParser.parseType(returnClass.getCanonicalName()),
                                                                              RESULT_VALUE_REFERENCE_NAME);
         methodBody.addStatement(0, returnVariable);
     }
 
-    private void createMapContextVariableAssignments(Map.Entry<String, Class> entry) {
-        String binding = entry.getKey();
+    private void createMapContextVariableAssignments(Set<Entry<String, Class>> entries, Set<String> inputs, String[] returnVars) {
+        Set<String> returnSet = new HashSet<>(Arrays.asList(returnVars));
 
-        Class<?> contextVarClass = entry.getValue();
-        if (contextVarClass.getCanonicalName() != null) {
-            Type type = StaticJavaParser.parseType(contextVarClass.getCanonicalName());
-            VariableDeclarationExpr variable = new VariableDeclarationExpr(type, binding);
-            Expression indexMethodExpression = new CastExpr(type, new MethodCallExpr(new NameExpr("map"), "get", NodeList.nodeList(new StringLiteralExpr(binding))));
-            methodBody.addStatement(0, variable);
+        for (Map.Entry<String, Class> entry : entries) {
+            String variable = entry.getKey();
+            if (!inputs.contains(variable)) {
+                continue;
+            }
+            
+            Class<?> contextVarClass = entry.getValue();
+            if (contextVarClass.getCanonicalName() != null) {
+                Type type = StaticJavaParser.parseType(contextVarClass.getCanonicalName());
+                VariableDeclarationExpr varDecl = new VariableDeclarationExpr(type, variable);
+                Expression indexMethodExpression = new CastExpr(type, new MethodCallExpr(new NameExpr("map"), "get", NodeList.nodeList(new StringLiteralExpr(variable))));
+                methodBody.addStatement(0, varDecl);
 
-            final Expression expr = new AssignExpr(new NameExpr(binding), indexMethodExpression, AssignExpr.Operator.ASSIGN);
-            bindingAssignmentBlock.addStatement(expr);
+                final Expression expr = new AssignExpr(new NameExpr(variable), indexMethodExpression, AssignExpr.Operator.ASSIGN);
+                bindingAssignmentBlock.addStatement(expr);
 
-            MethodCallExpr putExpr = new MethodCallExpr(new NameExpr("map"), "put", NodeList.nodeList(new StringLiteralExpr(binding), new NameExpr(binding)));
-            repopulateMapBlock.addStatement(putExpr);
+                if (returnSet.contains(variable)) {
+                    MethodCallExpr putExpr = new MethodCallExpr(new NameExpr("map"), "put", NodeList.nodeList(new StringLiteralExpr(variable), new NameExpr(variable)));
+                    repopulateMapBlock.addStatement(putExpr);
+                }
+            }
         }
     }
 
-    private void createArrayContextVariableAssignments(Declaration[] types) {
+    private void createArrayContextVariableAssignments(Declaration[] types, String... returnVars) {
+        Set<String> returnSet = new HashSet<>(Arrays.asList(returnVars));
+
         for (int i = 0; i < types.length; i++) {
             Class<?> contextVarClass = types[i].getClazz();
             String binding = types[i].getName();
@@ -227,11 +243,13 @@ public class CompilationUnitGenerator {
                 final Expression expr = new AssignExpr(new NameExpr(binding), indexMethodExpression, AssignExpr.Operator.ASSIGN);
                 bindingAssignmentBlock.addStatement(expr);
 
-                AssignExpr putExpr = new AssignExpr(new ArrayAccessExpr(new NameExpr("array"), new IntegerLiteralExpr(i)),
-                                                    new IntegerLiteralExpr(i),
-                                                    Operator.ASSIGN);
+                if (returnSet.contains(binding)) {
+                    AssignExpr putExpr = new AssignExpr(new ArrayAccessExpr(new NameExpr("array"), new IntegerLiteralExpr(i)),
+                                                        new NameExpr(binding),
+                                                        Operator.ASSIGN);
 
-                repopulateMapBlock.addStatement(putExpr);
+                    repopulateMapBlock.addStatement(putExpr);
+                }
             }
         }
     }
