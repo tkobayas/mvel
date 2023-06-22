@@ -94,24 +94,18 @@ public class MVELTranspiler {
 
         BlockStmt mvelExpression = MvelParser.parseBlock(mvelBlock);
 
-        VariableAnalyser analyser = new VariableAnalyser();
+        VariableAnalyser analyser = new VariableAnalyser(mvelTranspilerContext.getDeclarations().keySet());
         mvelExpression.accept(analyser, null);
-
 
         preprocessPhase.removeEmptyStmt(mvelExpression);
 
-        Set<String> allUsedBindings = new HashSet<>();
-
-        List<String> modifyUsedBindings = mvelExpression.findAll(ModifyStatement.class)
-                .stream()
-                .flatMap(this::transformStatementWithPreprocessing)
-                .collect(toList());
-
-        allUsedBindings.addAll(modifyUsedBindings);
+        mvelExpression.findAll(ModifyStatement.class)
+                      .stream()
+                      .flatMap(this::transformStatementWithPreprocessing)
+                      .collect(toList());
 
         // Entry point of the compiler
         TypedExpression compiledRoot = mvelExpression.accept(statementVisitor, null);
-        allUsedBindings.addAll(analyser.getInputs());
 
         Node javaRoot = compiledRoot.toJavaExpression();
 
@@ -120,7 +114,7 @@ public class MVELTranspiler {
         }
 
         BlockStmt compiledBlockStatement = (BlockStmt) javaRoot;
-        return new TranspiledBlockResult(compiledBlockStatement.getStatements(), analyser.getInputs());
+        return new TranspiledBlockResult(compiledBlockStatement.getStatements(), analyser.getUsed());
     }
 
     private Stream<String> transformStatementWithPreprocessing(Statement s) {

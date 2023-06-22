@@ -40,6 +40,8 @@ import com.github.javaparser.ast.expr.UnaryExpr;
 import com.github.javaparser.ast.expr.VariableDeclarationExpr;
 import com.github.javaparser.ast.stmt.ExpressionStmt;
 import com.github.javaparser.ast.stmt.YieldStmt;
+import org.mvel3.parser.ast.visitor.DrlGenericVisitorWithDefaults;
+import org.mvel3.transpiler.RHSPhase.Context;
 import org.mvel3.transpiler.ast.ObjectCreationExpressionT;
 import org.mvel3.parser.ast.expr.BigDecimalLiteralExpr;
 import org.mvel3.parser.ast.expr.BigIntegerLiteralExpr;
@@ -96,7 +98,7 @@ import static org.mvel3.util.ClassUtils.getAccessor;
  * might need to create new variables accordingly.
  *
  */
-public class RHSPhase implements DrlGenericVisitor<TypedExpression, RHSPhase.Context> {
+public class RHSPhase extends DrlGenericVisitorWithDefaults<TypedExpression, Context> {
 
     private static final Set<BinaryExpr.Operator> arithmeticOperators = Set.of(
             BinaryExpr.Operator.PLUS,
@@ -345,7 +347,7 @@ public class RHSPhase implements DrlGenericVisitor<TypedExpression, RHSPhase.Con
     }
 
     @Override
-    public TypedExpression defaultMethod(Node n, Context context) {
+    public TypedExpression defaultAction(Node n, Context context) {
         return new UnalteredTypedExpression(n);
     }
 
@@ -405,7 +407,7 @@ public class RHSPhase implements DrlGenericVisitor<TypedExpression, RHSPhase.Con
         } else if (innerExpr instanceof BigIntegerLiteralExpr && operator == UnaryExpr.Operator.MINUS) {
             return new BigIntegerConvertedExprT(new StringLiteralExpressionT(new StringLiteralExpr(operator.asString() + ((BigIntegerLiteralExpr) innerExpr).getValue())));
         } else {
-            return defaultMethod(n, arg);
+            return defaultAction(n, arg);
         }
     }
 

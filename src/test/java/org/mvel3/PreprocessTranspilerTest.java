@@ -53,7 +53,8 @@ public class PreprocessTranspilerTest implements TranspilerTest {
 
     @Test
     public void testNestedModify() {
-        test("{    if ($fact.getResult() != null) {\n" +
+        test(ctx -> ctx.addDeclaration("$fact", Object.class), // there is no real class for this.
+             "{    if ($fact.getResult() != null) {\n" +
                      "        $fact.setResult(\"OK\");\n" +
                      "    } else {\n" +
                      "        modify ($fact) {\n" +
@@ -109,11 +110,11 @@ public class PreprocessTranspilerTest implements TranspilerTest {
     }
 
     @Override
-    public void test(Consumer<MvelTranspilerContext> testFunction,
+    public void test(Consumer<MvelTranspilerContext> updateContextFunc,
                       String inputExpression,
                       String expectedResult,
                       Consumer<TranspiledBlockResult> resultAssert) {
-        TranspiledBlockResult compiled = new PreprocessTranspiler().compile(inputExpression);
+        TranspiledBlockResult compiled = new PreprocessTranspiler().compile(inputExpression, updateContextFunc);
         assertThat(compiled.resultAsString()).isEqualToIgnoringWhitespace(expectedResult);
         resultAssert.accept(compiled);
     }

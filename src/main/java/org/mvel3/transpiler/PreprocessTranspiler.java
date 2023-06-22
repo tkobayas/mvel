@@ -25,10 +25,14 @@ import com.github.javaparser.ast.expr.TextBlockLiteralExpr;
 import com.github.javaparser.ast.stmt.BlockStmt;
 import org.mvel3.parser.MvelParser;
 import org.mvel3.parser.ast.expr.ModifyStatement;
+import org.mvel3.transpiler.context.MvelTranspilerContext;
+import org.mvel3.util.ClassTypeResolver;
+import org.mvel3.util.TypeResolver;
 
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Consumer;
 
 import static com.github.javaparser.ast.NodeList.nodeList;
 
@@ -39,11 +43,22 @@ public class PreprocessTranspiler {
 
     private static final PreprocessPhase preprocessPhase = new PreprocessPhase();
 
-    public TranspiledBlockResult compile(String mvelBlock) {
+    public TranspiledBlockResult compile(String mvelBlock, Consumer<MvelTranspilerContext> updateContextFunc) {
+        Set<String> imports = new HashSet<>();
+        imports.add("java.util.List");
+        imports.add("java.util.ArrayList");
+        imports.add("java.util.HashMap");
+        imports.add("java.util.Map");
+        imports.add("java.math.BigDecimal");
+        imports.add("org.mvel3.Address");
+
+        TypeResolver classTypeResolver = new ClassTypeResolver(imports, PreprocessTranspiler.class.getClassLoader());
+        MvelTranspilerContext context = new MvelTranspilerContext(classTypeResolver);
+        updateContextFunc.accept(context);
 
         BlockStmt mvelExpression = MvelParser.parseBlock(mvelBlock);
 
-        VariableAnalyser analyser = new VariableAnalyser();
+        VariableAnalyser analyser = new VariableAnalyser(context.getDeclarations().keySet());
         mvelExpression.accept(analyser, null);
 
         preprocessPhase.removeEmptyStmt(mvelExpression);
@@ -63,12 +78,10 @@ public class PreprocessTranspiler {
             });
         });
 
-        Set<String> usedBindings = new HashSet<>();
         mvelExpression.findAll(ModifyStatement.class)
                 .forEach(s -> {
                     Optional<Node> parentNode = s.getParentNode();
                     PreprocessPhase.PreprocessPhaseResult invoke = preprocessPhase.invoke(s);
-                    usedBindings.addAll(invoke.getUsedBindings());
                     parentNode.ifPresent(p -> {
                         BlockStmt parentBlock = (BlockStmt) p;
                         for (String modifiedFact : invoke.getUsedBindings()) {
@@ -78,6 +91,6 @@ public class PreprocessTranspiler {
                     s.remove();
                 });
 
-        return new TranspiledBlockResult(mvelExpression.getStatements(), analyser.getInputs());
+        return new TranspiledBlockResult(mvelExpression.getStatements(), analyser.getUsed());
     }
 }

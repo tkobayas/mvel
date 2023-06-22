@@ -40,7 +40,7 @@ public class ConstraintTranspiler {
     }
 
     public TranspiledExpressionResult compileExpression(Expression parsedExpression) {
-        VariableAnalyser analyser = new VariableAnalyser();
+        VariableAnalyser analyser = new VariableAnalyser(mvelTranspilerContext.getDeclarations().keySet());
         parsedExpression.accept(analyser, null);
 
         // Avoid processing the LHS as it's not present while compiling an expression
@@ -48,6 +48,6 @@ public class ConstraintTranspiler {
 
         Expression expression = (Expression) compiled.toJavaExpression();
 
-        return new TranspiledExpressionResult(expression, compiled.getType(), analyser.getInputs());
+        return new TranspiledExpressionResult(expression, compiled.getType(), analyser.getUsed());
     }
 }

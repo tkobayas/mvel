@@ -19,6 +19,8 @@ package org.mvel3.transpiler;
 import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.expr.Expression;
 import com.github.javaparser.ast.expr.MethodCallExpr;
+import org.mvel3.parser.ast.visitor.DrlGenericVisitorWithDefaults;
+import org.mvel3.transpiler.RHSPhase.Context;
 import org.mvel3.transpiler.ast.MethodCallExprT;
 import org.mvel3.transpiler.ast.TypedExpression;
 import org.mvel3.transpiler.context.MvelTranspilerContext;
@@ -37,7 +39,7 @@ import java.util.stream.Collectors;
 
 import static org.mvel3.util.StreamUtils.optionalToStream;
 
-public class MethodCallExprVisitor implements DrlGenericVisitor<TypedExpression, RHSPhase.Context> {
+public class MethodCallExprVisitor extends DrlGenericVisitorWithDefaults<TypedExpression, Context> {
 
     final RHSPhase parentVisitor;
     final MvelTranspilerContext mvelTranspilerContext;
@@ -48,7 +50,7 @@ public class MethodCallExprVisitor implements DrlGenericVisitor<TypedExpression,
     }
 
     @Override
-    public TypedExpression defaultMethod(Node n, RHSPhase.Context context) {
+    public TypedExpression defaultAction(Node n, RHSPhase.Context context) {
         return n.accept(parentVisitor, context);
     }
 

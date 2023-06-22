@@ -29,7 +29,7 @@ import com.github.javaparser.ast.expr.VariableDeclarationExpr;
 import com.github.javaparser.ast.stmt.ExpressionStmt;
 import com.github.javaparser.ast.type.ClassOrInterfaceType;
 import org.mvel3.parser.ast.expr.DrlNameExpr;
-import org.mvel3.parser.ast.visitor.DrlGenericVisitor;
+import org.mvel3.parser.ast.visitor.DrlGenericVisitorWithDefaults;
 import org.mvel3.transpiler.ast.AssignExprT;
 import org.mvel3.transpiler.ast.BigDecimalArithmeticExprT;
 import org.mvel3.transpiler.ast.BigDecimalConvertedExprT;
@@ -78,7 +78,7 @@ import static org.mvel3.util.ClassUtils.getSetter;
  *
  * person.setName("Name");
  */
-public class LHSPhase implements DrlGenericVisitor<TypedExpression, Void> {
+public class LHSPhase extends DrlGenericVisitorWithDefaults<TypedExpression, Void> {
 
     //private Logger logger = LoggerFactory.getLogger(LHSPhase.class);
 
@@ -397,7 +397,7 @@ public class LHSPhase implements DrlGenericVisitor<TypedExpression, Void> {
     }
 
     @Override
-    public TypedExpression defaultMethod(Node n, Void unused) {
+    public TypedExpression defaultAction(Node n, Void unused) {
         return new UnalteredTypedExpression(n);
     }
 }

@@ -831,7 +831,7 @@ public class MVELTranspilerTest implements TranspilerTest {
              },
              "{ modify ( $p )  { items = $p2.items }; }",
              "{\n {\n $p.setItems($p2.getItems());\n }\n }",
-             result -> assertThat(allUsedBindings(result)).containsExactlyInAnyOrder("$p"));
+             result -> assertThat(allUsedBindings(result)).containsExactlyInAnyOrder("$p", "$p2"));
     }
 
     @Test

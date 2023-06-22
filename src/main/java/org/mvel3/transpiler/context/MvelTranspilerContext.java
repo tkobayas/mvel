@@ -40,7 +40,6 @@ public class MvelTranspilerContext {
 
     private final TypeResolver typeResolver;
     private final String scopeSuffix;
-    private final Set<String> usedBindings = new HashSet<>();
 
     // Used in ConstraintParser
     private Optional<Class<?>> rootPattern = Optional.empty();
@@ -62,6 +61,10 @@ public class MvelTranspilerContext {
     public MvelTranspilerContext addDeclaration(String name, Class<?> clazz) {
         declarations.put(name, new Declaration(name, clazz));
         return this;
+    }
+
+    public Map<String, Declaration> getDeclarations() {
+        return declarations;
     }
 
     public Optional<Declaration> findDeclarations(String name) {
@@ -117,13 +120,5 @@ public class MvelTranspilerContext {
 
     public Optional<TypedExpression> createRootTypePrefix() {
         return OptionalUtils.map2(rootPattern, rootPrefix, RootTypeThisExpr::new);
-    }
-
-    public void addUsedBinding(String s) {
-        usedBindings.add(s);
-    }
-
-    public Set<String> getUsedBindings() {
-        return usedBindings;
     }
 }

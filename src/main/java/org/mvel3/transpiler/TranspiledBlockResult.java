@@ -30,7 +30,7 @@ public class TranspiledBlockResult implements TranspiledResult {
 
     private List<Statement> statements;
 
-    private Set<String> inputs = new HashSet<>();
+    private Set<String> inputs;
 
     public TranspiledBlockResult(List<Statement> statements, Set<String> inputs) {
         this.statements = statements;

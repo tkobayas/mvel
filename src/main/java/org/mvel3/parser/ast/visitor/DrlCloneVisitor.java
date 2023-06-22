@@ -39,6 +39,7 @@ import org.mvel3.parser.ast.expr.PointFreeExpr;
 import org.mvel3.parser.ast.expr.RuleBody;
 import org.mvel3.parser.ast.expr.RuleConsequence;
 import org.mvel3.parser.ast.expr.RuleDeclaration;
+import org.mvel3.parser.ast.expr.RuleJoinedPatterns;
 import org.mvel3.parser.ast.expr.RulePattern;
 import org.mvel3.parser.ast.expr.TemporalLiteralChunkExpr;
 import org.mvel3.parser.ast.expr.TemporalLiteralExpr;
@@ -65,6 +66,8 @@ public class DrlCloneVisitor extends CloneVisitor implements DrlGenericVisitor<V
     public Visitable visit(RulePattern n, Object arg) {
         return null;
     }
+
+    public Visitable visit(RuleJoinedPatterns n, Object arg) { return null; }
 
     @Override
     public Visitable visit(DrlxExpression n, Object arg) {
@@ -180,4 +183,6 @@ public class DrlCloneVisitor extends CloneVisitor implements DrlGenericVisitor<V
     public Visitable visit(WithStatement withStatement, Object arg) {
         return null;
     }
+
+
 }

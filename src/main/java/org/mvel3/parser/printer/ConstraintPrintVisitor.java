@@ -49,7 +49,10 @@ import org.mvel3.parser.ast.expr.OOPathChunk;
 import org.mvel3.parser.ast.expr.OOPathExpr;
 import org.mvel3.parser.ast.expr.PointFreeExpr;
 import org.mvel3.parser.ast.expr.RuleBody;
+import org.mvel3.parser.ast.expr.RuleConsequence;
 import org.mvel3.parser.ast.expr.RuleDeclaration;
+import org.mvel3.parser.ast.expr.RuleJoinedPatterns;
+import org.mvel3.parser.ast.expr.RulePattern;
 import org.mvel3.parser.ast.expr.TemporalChunkExpr;
 import org.mvel3.parser.ast.expr.TemporalLiteralChunkExpr;
 import org.mvel3.parser.ast.expr.TemporalLiteralExpr;
@@ -89,6 +92,26 @@ public class ConstraintPrintVisitor extends DefaultPrettyPrinterVisitor implemen
 
     @Override
     public void visit( RuleBody ruleBody, Void arg ) {
+    }
+
+    @Override
+    public void visit(RulePattern n, Void arg) {
+
+    }
+
+    @Override
+    public void visit(RuleJoinedPatterns n, Void arg) {
+
+    }
+
+    @Override
+    public void visit(OOPathChunk n, Void arg) {
+
+    }
+
+    @Override
+    public void visit(RuleConsequence n, Void arg) {
+
     }
 
     @Override

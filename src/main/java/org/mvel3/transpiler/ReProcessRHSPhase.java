@@ -22,6 +22,8 @@ import com.github.javaparser.ast.expr.IntegerLiteralExpr;
 import com.github.javaparser.ast.expr.LongLiteralExpr;
 import com.github.javaparser.ast.expr.NameExpr;
 import com.github.javaparser.ast.expr.UnaryExpr;
+import org.mvel3.parser.ast.visitor.DrlGenericVisitorWithDefaults;
+import org.mvel3.transpiler.ReProcessRHSPhase.Context;
 import org.mvel3.transpiler.ast.TypedExpression;
 import org.mvel3.parser.ast.visitor.DrlGenericVisitor;
 import org.mvel3.transpiler.ast.BigDecimalConvertedExprT;
@@ -37,7 +39,7 @@ import java.util.function.Supplier;
 /**
  * Used when you need to reprocess the RHS after having processed the LHS
  */
-public class ReProcessRHSPhase implements DrlGenericVisitor<Optional<TypedExpression>, ReProcessRHSPhase.Context> {
+public class ReProcessRHSPhase extends DrlGenericVisitorWithDefaults<Optional<TypedExpression>, Context> {
 
     private TypedExpression lhs;
     private MvelTranspilerContext mvelTranspilerContext;
@@ -65,7 +67,7 @@ public class ReProcessRHSPhase implements DrlGenericVisitor<Optional<TypedExpres
     }
 
     @Override
-    public Optional<TypedExpression> defaultMethod(Node n, Context context) {
+    public Optional<TypedExpression> defaultAction(Node n, Context context) {
         return Optional.empty();
     }
 

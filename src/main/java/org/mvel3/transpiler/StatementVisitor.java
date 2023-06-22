@@ -27,6 +27,7 @@ import com.github.javaparser.ast.stmt.IfStmt;
 import com.github.javaparser.ast.stmt.SwitchEntry;
 import com.github.javaparser.ast.stmt.SwitchStmt;
 import com.github.javaparser.ast.stmt.WhileStmt;
+import org.mvel3.parser.ast.visitor.DrlGenericVisitorWithDefaults;
 import org.mvel3.transpiler.ast.BlockStmtT;
 import org.mvel3.transpiler.ast.DoStmtT;
 import org.mvel3.transpiler.ast.ForEachDowncastStmtT;
@@ -50,7 +51,7 @@ import java.util.stream.Collectors;
 import static java.util.Optional.of;
 import static java.util.Optional.ofNullable;
 
-public class StatementVisitor implements DrlGenericVisitor<TypedExpression, Void> {
+public class StatementVisitor extends DrlGenericVisitorWithDefaults<TypedExpression, Void> {
 
     private MvelTranspilerContext mvelTranspilerContext;
 
@@ -166,7 +167,7 @@ public class StatementVisitor implements DrlGenericVisitor<TypedExpression, Void
     }
 
     @Override
-    public TypedExpression defaultMethod(Node n, Void context) {
+    public TypedExpression defaultAction(Node n, Void context) {
         return new UnalteredTypedExpression(n);
     }
 }

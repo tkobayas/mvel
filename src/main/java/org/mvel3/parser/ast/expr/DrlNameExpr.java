@@ -77,11 +77,7 @@ public final class DrlNameExpr extends NameExpr implements NodeWithSimpleName<Na
 
     @Override
     public <R, A> R accept(GenericVisitor<R, A> v, A arg) {
-        if (v instanceof  DrlGenericVisitor) {
-            return ((DrlGenericVisitor<R, A>) v).visit(this, arg);
-        } else {
-            return v.visit(this, arg);
-        }
+        return ((DrlGenericVisitor<R, A>) v).visit(this, arg);
     }
 
     @Override

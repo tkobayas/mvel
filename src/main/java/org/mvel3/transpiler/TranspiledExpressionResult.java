@@ -33,7 +33,7 @@ public class TranspiledExpressionResult implements TranspiledResult {
     private Expression expression;
     private Optional<Type> type;
 
-    private Set<String> inputs = new HashSet<>();
+    private Set<String> inputs;
 
     public TranspiledExpressionResult(Expression expression, Optional<Type> type, Set<String> inputs) {
         this.expression = expression;
