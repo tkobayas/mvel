@@ -16,6 +16,7 @@
 
 package org.mvel3.transpiler;
 
+import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.stmt.BlockStmt;
 import com.github.javaparser.ast.stmt.Statement;
@@ -38,11 +39,11 @@ import static java.util.stream.Collectors.toList;
 public class MVELTranspiler {
 
     private final PreprocessPhase preprocessPhase = new PreprocessPhase();
-    private final StatementVisitor statementVisitor;
+    //private final StatementVisitor statementVisitor;
     private MvelTranspilerContext mvelTranspilerContext;
 
     public MVELTranspiler(MvelTranspilerContext mvelTranspilerContext) {
-        this.statementVisitor = new StatementVisitor(mvelTranspilerContext);
+        //this.statementVisitor = new StatementVisitor(mvelTranspilerContext);
         this.mvelTranspilerContext = mvelTranspilerContext;
     }
 
@@ -99,22 +100,24 @@ public class MVELTranspiler {
 
         preprocessPhase.removeEmptyStmt(mvelExpression);
 
-        mvelExpression.findAll(ModifyStatement.class)
-                      .stream()
-                      .flatMap(this::transformStatementWithPreprocessing)
-                      .collect(toList());
+//        mvelExpression.findAll(ModifyStatement.class)
+//                      .stream()
+//                      .flatMap(this::transformStatementWithPreprocessing)
+//                      .collect(toList());
+//
+//        // Entry point of the compiler
+//        TypedExpression compiledRoot = mvelExpression.accept(statementVisitor, null);
+//
+//        Node javaRoot = compiledRoot.toJavaExpression();
+//
+//        if(!(javaRoot instanceof BlockStmt)) {
+//            throw new MVELTranspilerException("With a BlockStmt as a input I was expecting a BlockStmt output");
+//        }
+//
+//        BlockStmt compiledBlockStatement = (BlockStmt) javaRoot;
 
-        // Entry point of the compiler
-        TypedExpression compiledRoot = mvelExpression.accept(statementVisitor, null);
-
-        Node javaRoot = compiledRoot.toJavaExpression();
-
-        if(!(javaRoot instanceof BlockStmt)) {
-            throw new MVELTranspilerException("With a BlockStmt as a input I was expecting a BlockStmt output");
-        }
-
-        BlockStmt compiledBlockStatement = (BlockStmt) javaRoot;
-        return new TranspiledBlockResult(compiledBlockStatement.getStatements(), analyser.getUsed());
+        //return new TranspiledBlockResult(compiledBlockStatement.getStatements(), analyser.getUsed());
+        return new TranspiledBlockResult(mvelExpression.getStatements(), mvelTranspilerContext.getDeclarations(), analyser.getUsed(), mvelTranspilerContext.getTypeResolver().getImports());
     }
 
     private Stream<String> transformStatementWithPreprocessing(Statement s) {

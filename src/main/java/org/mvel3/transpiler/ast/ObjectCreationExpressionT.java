@@ -20,6 +20,7 @@ import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.expr.Expression;
 import com.github.javaparser.ast.expr.ObjectCreationExpr;
+import com.github.javaparser.ast.type.ClassOrInterfaceType;
 
 import java.lang.reflect.Type;
 import java.util.List;
@@ -28,23 +29,32 @@ import java.util.stream.Collectors;
 
 public class ObjectCreationExpressionT implements TypedExpression {
 
-    private final Class<?> type;
+    private final Class<?> classType;
+
+    private final ClassOrInterfaceType type;
     private List<TypedExpression> constructorArguments;
 
-    public ObjectCreationExpressionT(List<TypedExpression> constructorArguments, Class<?> type) {
+    public ObjectCreationExpressionT(List<TypedExpression> constructorArguments, ClassOrInterfaceType type, Class<?> classType) {
         this.constructorArguments = constructorArguments;
         this.type = type;
+        this.classType = classType;
     }
 
     @Override
     public Optional<Type> getType() {
-        return Optional.of(type);
+        return Optional.of(classType);
     }
 
     @Override
     public Node toJavaExpression() {
         ObjectCreationExpr objectCreationExpr = new ObjectCreationExpr();
-        objectCreationExpr.setType(type.getCanonicalName());
+
+        if (type.getScope().isPresent()) {
+            objectCreationExpr.setType(type.getNameWithScope());
+        } else {
+            objectCreationExpr.setType(type.getNameAsString());
+        }
+
         List<Expression> arguments = this.constructorArguments.stream()
                 .map(typedExpression -> (Expression)typedExpression.toJavaExpression())
                 .collect(Collectors.toList());
@@ -56,7 +66,7 @@ public class ObjectCreationExpressionT implements TypedExpression {
     public String toString() {
         final StringBuilder sb = new StringBuilder("ObjectCreationExpressionT{");
         sb.append("arguments=").append(constructorArguments);
-        sb.append("type=").append(type);
+        sb.append("type=").append(type.getNameWithScope());
         sb.append('}');
         return sb.toString();
     }

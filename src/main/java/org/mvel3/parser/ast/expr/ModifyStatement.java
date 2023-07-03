@@ -30,7 +30,9 @@ public class ModifyStatement extends Statement {
 
     @Override
     public <A> void accept(VoidVisitor<A> v, A arg) {
-        ((DrlVoidVisitor<A>)v).visit(this, arg);
+        if (v instanceof  DrlVoidVisitor) {
+            ((DrlVoidVisitor<A>) v).visit(this, arg);
+        }
     }
 
     public NodeList<Statement> getExpressions() {

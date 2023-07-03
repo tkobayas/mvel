@@ -22,6 +22,8 @@ import com.github.javaparser.ast.expr.CastExpr;
 import com.github.javaparser.ast.expr.EnclosedExpr;
 import com.github.javaparser.ast.expr.Expression;
 import com.github.javaparser.ast.expr.VariableDeclarationExpr;
+import com.github.javaparser.ast.type.ClassOrInterfaceType;
+import org.mvel3.parser.ast.expr.DrlNameExpr;
 
 import java.lang.reflect.Type;
 import java.util.Optional;
@@ -35,7 +37,8 @@ public class VariableDeclaratorTExpr implements TypedExpression {
     private final Type type;
     private final Optional<TypedExpression> initExpression;
 
-    public VariableDeclaratorTExpr(Node originalNode, String name, Type type, Optional<TypedExpression> initExpression) {
+    public VariableDeclaratorTExpr(Node originalNode, String name,
+                                   Type type, Optional<TypedExpression> initExpression) {
         this.originalNode = originalNode;
         this.name = name;
         this.type = type;
@@ -49,6 +52,22 @@ public class VariableDeclaratorTExpr implements TypedExpression {
 
     @Override
     public Node toJavaExpression() {
+        //com.github.javaparser.ast.type.Type declaredJpType = null;
+        String declaredType = null;
+
+        if (originalNode instanceof ClassOrInterfaceType) {
+            ClassOrInterfaceType originalType= (ClassOrInterfaceType) originalNode;
+            if (originalType.getScope().isPresent()) {
+                declaredType = originalType.getNameWithScope();
+            } else {
+                declaredType = originalType.getNameAsString();
+            }
+        } else if (originalNode instanceof DrlNameExpr ){
+            declaredType = ((DrlNameExpr)originalNode).getNameAsString();
+        }
+
+
+
         Optional<Type> optInitType = initExpression.flatMap(TypedExpression::getType);
         com.github.javaparser.ast.type.Type jpType = toJPType(this.type);
 

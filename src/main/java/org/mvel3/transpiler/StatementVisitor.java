@@ -74,27 +74,27 @@ public class StatementVisitor extends DrlGenericVisitorWithDefaults<TypedExpress
         return postProcessedLHS;
     }
 
-    @Override
-    public TypedExpression visit(ForEachStmt n, Void arg) {
-        Expression iterable = n.getIterable();
-
-        Optional<TypedExpression> convertedToDowncastStmt =
-                iterable.toNameExpr()
-                        .map(PrintUtil::printNode)
-                        .flatMap(mvelTranspilerContext::findDeclarations)
-                        .filter(this::isDeclarationIterable)
-                        .map(d -> toForEachDowncastStmtT(n, arg));
-
-        if(convertedToDowncastStmt.isPresent()) {
-            return convertedToDowncastStmt.get();
-        }
-
-        TypedExpression variableDeclarationExpr = new LHSPhase(mvelTranspilerContext, Optional.empty()).invoke(n.getVariable());
-        TypedExpression typedIterable = new RHSPhase(mvelTranspilerContext).invoke(n.getIterable());
-        TypedExpression body = n.getBody().accept(this, arg);
-
-        return new ForEachStmtT(variableDeclarationExpr, typedIterable, body);
-    }
+//    @Override
+//    public TypedExpression visit(ForEachStmt n, Void arg) {
+//        Expression iterable = n.getIterable();
+//
+//        Optional<TypedExpression> convertedToDowncastStmt =
+//                iterable.toNameExpr()
+//                        .map(PrintUtil::printNode)
+//                        .flatMap(mvelTranspilerContext::findDeclarations)
+//                        .filter(this::isDeclarationIterable)
+//                        .map(d -> toForEachDowncastStmtT(n, arg));
+//
+//        if(convertedToDowncastStmt.isPresent()) {
+//            return convertedToDowncastStmt.get();
+//        }
+//
+//        TypedExpression variableDeclarationExpr = new LHSPhase(mvelTranspilerContext, Optional.empty()).invoke(n.getVariable());
+//        TypedExpression typedIterable = new RHSPhase(mvelTranspilerContext).invoke(n.getIterable());
+//        TypedExpression body = n.getBody().accept(this, arg);
+//
+//        return new ForEachStmtT(variableDeclarationExpr, typedIterable, body);
+//    }
 
     private ForEachDowncastStmtT toForEachDowncastStmtT(ForEachStmt n, Void arg) {
         TypedExpression child = this.visit((BlockStmt) n.getBody(), arg);

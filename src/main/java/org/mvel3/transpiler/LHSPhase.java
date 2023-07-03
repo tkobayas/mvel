@@ -60,6 +60,7 @@ import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static java.util.Optional.ofNullable;
 import static org.mvel3.parser.printer.PrintUtil.printNode;
+import static org.mvel3.transpiler.util.TypeUtils.toJPType;
 import static org.mvel3.util.ClassUtils.getAccessor;
 import static org.mvel3.util.ClassUtils.getSetter;
 
@@ -299,6 +300,24 @@ public class LHSPhase extends DrlGenericVisitorWithDefaults<TypedExpression, Voi
         Class<?> type = getRHSorLHSType(n);
 
         mvelTranspilerContext.addDeclaration(variableName, type);
+
+//        String declaredType = null;
+//
+//        if (originalNode instanceof ClassOrInterfaceType) {
+//            ClassOrInterfaceType originalType= (ClassOrInterfaceType) originalNode;
+//            if (originalType.getScope().isPresent()) {
+//                declaredType = originalType.getNameWithScope();
+//            } else {
+//                declaredType = originalType.getNameAsString();
+//            }
+//        } else if (originalNode instanceof DrlNameExpr ){
+//            declaredType = ((DrlNameExpr)originalNode).getNameAsString();
+//        }
+//
+//
+//
+//        Optional<Type> optInitType = initExpression.flatMap(TypedExpression::getType);
+//        com.github.javaparser.ast.type.Type jpType = toJPType(this.type);
 
         return new VariableDeclaratorTExpr(n, variableName, type, rhs);
     }

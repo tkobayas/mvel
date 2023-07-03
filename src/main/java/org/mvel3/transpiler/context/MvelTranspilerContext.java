@@ -39,19 +39,13 @@ public class MvelTranspilerContext {
     private final Map<String, DeclaredFunction> declaredFunctions = new HashMap<>();
 
     private final TypeResolver typeResolver;
-    private final String scopeSuffix;
 
     // Used in ConstraintParser
     private Optional<Class<?>> rootPattern = Optional.empty();
     private Optional<String> rootPrefix = Optional.empty();
 
     public MvelTranspilerContext(TypeResolver typeResolver) {
-        this(typeResolver, null);
-    }
-
-    public MvelTranspilerContext(TypeResolver typeResolver, String scopeSuffix) {
         this.typeResolver = typeResolver;
-        this.scopeSuffix = isEmpty( scopeSuffix ) ? null : scopeSuffix;
     }
 
     public TypeResolver getTypeResolver() {
@@ -69,9 +63,6 @@ public class MvelTranspilerContext {
 
     public Optional<Declaration> findDeclarations(String name) {
         Declaration d = declarations.get(name);
-        if (d == null && scopeSuffix != null) {
-            d = declarations.get( name + scopeSuffix );
-        }
         return Optional.ofNullable(d);
     }
 

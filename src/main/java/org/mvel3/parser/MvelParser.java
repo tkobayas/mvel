@@ -28,6 +28,7 @@ import com.github.javaparser.ParseProblemException;
 import com.github.javaparser.ParseResult;
 import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.Problem;
+import com.github.javaparser.Providers.PreProcessor;
 import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.expr.Expression;
 import com.github.javaparser.ast.expr.Name;
@@ -86,7 +87,7 @@ public final class MvelParser {
 
     public MvelParser(ParserConfiguration configuration, boolean optionalSemicolon) {
         this.configuration = configuration;
-        configuration.getPostProcessors().clear();
+        //configuration.getPostProcessors().clear();
         this.optionalSemicolon = optionalSemicolon;
     }
 
@@ -137,11 +138,41 @@ public final class MvelParser {
      * @param <N> the subclass of Node that is the result of parsing in the start.
      * @return the parse result, a collection of encountered problems, and some extra data.
      */
-    public <N extends Node> ParseResult<N> parse(ParseStart<N> start, Provider provider) {
+    public <N extends Node> ParseResult<N> parse(ParseStart<N> start, final Provider provider) {
     	assertNotNull(start);
     	assertNotNull(provider);
 
-        final GeneratedMvelParser parser = getParserForProvider(provider);
+        com.github.javaparser.Provider tempProvider = new com.github.javaparser.Provider() {
+            @Override
+            public int read(char[] aDest, int nOfs, int nLen) throws IOException {
+                return provider.read(aDest, nOfs, nLen);
+            }
+
+            @Override
+            public void close() throws IOException {
+                provider.close();
+            }
+        };
+
+        for (PreProcessor preProcessor : configuration.getPreProcessors()) {
+            tempProvider = preProcessor.process(tempProvider);
+        }
+
+        final com.github.javaparser.Provider  finalProvider = tempProvider;
+        Provider postProvider = new Provider() {
+            @Override
+            public int read(char[] aDest, int nOfs, int nLen) throws IOException {
+                return finalProvider.read(aDest, nOfs, nLen);
+            }
+
+            @Override
+            public void close() throws IOException {
+                finalProvider.close();
+            }
+        };
+
+
+        final GeneratedMvelParser parser = getParserForProvider(postProvider);
         try {
             N resultNode = start.parse(parser);
             ParseResult<N> result = new ParseResult<>(resultNode, parser.problems, parser.getCommentsCollection());

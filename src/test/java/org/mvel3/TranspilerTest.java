@@ -16,18 +16,24 @@
 
 package org.mvel3;
 
+import com.github.javaparser.symbolsolver.JavaSymbolSolver;
+import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
+import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver;
+import org.mvel3.parser.MvelParser;
 import org.mvel3.transpiler.TranspiledBlockResult;
 import org.mvel3.transpiler.MVELTranspiler;
 import org.mvel3.transpiler.context.MvelTranspilerContext;
 import org.mvel3.util.ClassTypeResolver;
 import org.mvel3.util.TypeResolver;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.function.Consumer;
 
+import static com.github.javaparser.ParserConfiguration.LanguageLevel.JAVA_11;
 import static org.assertj.core.api.Assertions.assertThat;
 
 interface TranspilerTest {
@@ -36,19 +42,25 @@ interface TranspilerTest {
                       String inputExpression,
                       String expectedResult,
                       Consumer<TranspiledBlockResult> resultAssert) {
+        JavaSymbolSolver solver = new JavaSymbolSolver(new CombinedTypeSolver(new ReflectionTypeSolver(false)));
+        MvelParser.getStaticConfiguration()
+                  .setLanguageLevel(JAVA_11)
+                  .setSymbolResolver(solver);
+
         Set<String> imports = new HashSet<>();
-        imports.add("java.util.List");
-        imports.add("java.util.ArrayList");
-        imports.add("java.util.HashMap");
-        imports.add("java.util.Map");
-        imports.add("java.math.BigDecimal");
-        imports.add("org.mvel3.Address");
+        imports.add(java.util.List.class.getCanonicalName());
+        imports.add(java.util.ArrayList.class.getCanonicalName());
+        imports.add(java.util.HashMap.class.getCanonicalName());
+        imports.add(java.util.Map.class.getCanonicalName());
+        imports.add(BigDecimal.class.getCanonicalName());
+        imports.add(Address.class.getCanonicalName());
         imports.add(Person.class.getCanonicalName());
         imports.add(Gender.class.getCanonicalName());
         TypeResolver typeResolver = new ClassTypeResolver(imports, this.getClass().getClassLoader());
         MvelTranspilerContext mvelTranspilerContext = new MvelTranspilerContext(typeResolver);
         testFunction.accept(mvelTranspilerContext);
         TranspiledBlockResult compiled = new MVELTranspiler(mvelTranspilerContext).transpileStatement(inputExpression);
+        System.out.println(compiled.resultAsString());
         verifyBodyWithBetterDiff(expectedResult, compiled.resultAsString());
         resultAssert.accept(compiled);
     }

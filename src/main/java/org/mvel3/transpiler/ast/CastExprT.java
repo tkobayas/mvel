@@ -21,6 +21,7 @@ import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.expr.CastExpr;
 import com.github.javaparser.ast.expr.EnclosedExpr;
 import com.github.javaparser.ast.expr.Expression;
+import com.github.javaparser.ast.type.ClassOrInterfaceType;
 
 import java.lang.reflect.Type;
 import java.util.Optional;
@@ -28,21 +29,26 @@ import java.util.Optional;
 public class CastExprT implements TypedExpression {
 
     private final TypedExpression innerExpr;
-    private final Class<?> type;
+    private final Class<?> classType;
 
-    public CastExprT(TypedExpression innerExpr, Class<?> type) {
+    private final com.github.javaparser.ast.type.Type type;
+
+    //private final ClassOrInterfaceType
+
+    public CastExprT(TypedExpression innerExpr, com.github.javaparser.ast.type.Type type, Class<?> classType) {
         this.innerExpr = innerExpr;
+        this.classType = classType;
         this.type = type;
     }
 
     @Override
     public Optional<Type> getType() {
-        return Optional.of(type);
+        return Optional.of(classType);
     }
 
     @Override
     public Node toJavaExpression() {
-        com.github.javaparser.ast.type.Type jpType = StaticJavaParser.parseType(this.type.getCanonicalName());
+        com.github.javaparser.ast.type.Type jpType = StaticJavaParser.parseType(this.classType.getCanonicalName());
         Expression expression = (Expression) innerExpr.toJavaExpression();
         return new EnclosedExpr(new CastExpr(jpType, expression));
     }

@@ -18,18 +18,32 @@
 
 package org.mvel3.parser.printer;
 
+import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.comments.Comment;
 import com.github.javaparser.ast.expr.AnnotationExpr;
+import com.github.javaparser.ast.expr.ArrayAccessExpr;
+import com.github.javaparser.ast.expr.AssignExpr;
+import com.github.javaparser.ast.expr.AssignExpr.Operator;
 import com.github.javaparser.ast.expr.Expression;
+import com.github.javaparser.ast.expr.FieldAccessExpr;
+import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.ast.nodeTypes.NodeWithTypeArguments;
 import com.github.javaparser.ast.stmt.Statement;
+import com.github.javaparser.ast.type.ClassOrInterfaceType;
 import com.github.javaparser.ast.type.Type;
 import com.github.javaparser.printer.DefaultPrettyPrinterVisitor;
 import com.github.javaparser.printer.configuration.ConfigurationOption;
 import com.github.javaparser.printer.configuration.DefaultConfigurationOption;
 import com.github.javaparser.printer.configuration.DefaultPrinterConfiguration;
+import com.github.javaparser.printer.configuration.DefaultPrinterConfiguration.ConfigOption;
 import com.github.javaparser.printer.configuration.PrinterConfiguration;
+import com.github.javaparser.resolution.MethodUsage;
+import com.github.javaparser.resolution.declarations.ResolvedReferenceTypeDeclaration;
+import com.github.javaparser.resolution.types.ResolvedType;
+import com.github.javaparser.symbolsolver.javaparsermodel.JavaParserFacade;
+import com.github.javaparser.symbolsolver.reflectionmodel.ReflectionClassDeclaration;
+import com.github.javaparser.symbolsolver.reflectionmodel.ReflectionFactory;
 import org.mvel3.parser.ast.expr.BigDecimalLiteralExpr;
 import org.mvel3.parser.ast.expr.BigIntegerLiteralExpr;
 import org.mvel3.parser.ast.expr.DrlNameExpr;
@@ -60,17 +74,24 @@ import org.mvel3.parser.ast.expr.TemporalLiteralInfiniteChunkExpr;
 import org.mvel3.parser.ast.expr.WithStatement;
 import org.mvel3.parser.ast.visitor.DrlVoidVisitor;
 
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import com.github.javaparser.symbolsolver.model.resolution.TypeSolver;
+
+import static com.github.javaparser.utils.PositionUtils.sortByBeginPosition;
 import static com.github.javaparser.utils.Utils.isNullOrEmpty;
 
-public class ConstraintPrintVisitor extends DefaultPrettyPrinterVisitor implements DrlVoidVisitor<Void> {
+public class MVELPrintVisitor extends DefaultPrettyPrinterVisitor implements DrlVoidVisitor<Void> {
 
-    public ConstraintPrintVisitor(PrinterConfiguration prettyPrinterConfiguration) {
+    private TypeSolver typeResolver;
+
+    public MVELPrintVisitor(PrinterConfiguration prettyPrinterConfiguration) {
         super(prettyPrinterConfiguration);
     }
 
@@ -340,14 +361,19 @@ public class ConstraintPrintVisitor extends DefaultPrettyPrinterVisitor implemen
         modifyExpression.getModifyObject().accept(this, arg);
         printer.print(") { ");
 
-        String expressionWithComma = modifyExpression.getExpressions()
-                .stream()
-                .filter(Objects::nonNull)
-                .filter(Statement::isExpressionStmt)
-                .map(n -> PrintUtil.printNode(n.asExpressionStmt().getExpression()))
-                .collect(Collectors.joining(", "));
+        NodeList<Statement> expressions = modifyExpression.getExpressions();
+        int i = 0;
+        for ( Statement st : expressions) {
+            if (st == null || !st.isExpressionStmt()) {
+                continue;
+            }
 
-        printer.print(expressionWithComma);
+            if ( i++ != 0) {
+                printer.print(", ");
+            }
+            st.accept( this, arg);
+        }
+
         printer.print(" }");
 
         printer.print(";");
@@ -429,6 +455,27 @@ public class ConstraintPrintVisitor extends DefaultPrettyPrinterVisitor implemen
     }
 
     @Override
+    public void visit(final ArrayAccessExpr n, final Void arg) {
+        printOrphanCommentsBeforeThisChildNode(n);
+        printComment(n.getComment(), arg);
+
+        n.getName().accept(this, arg);
+
+        ResolvedType type = n.getName().calculateResolvedType();
+
+
+        if (type.isArray()) {
+            printer.print("[");
+            n.getIndex().accept(this, arg);
+            printer.print("]");
+        } else {
+            printer.print(".get(");
+            n.getIndex().accept(this, arg);
+            printer.print(")");
+        }
+    }
+
+    @Override
     public void visit(MapCreationLiteralExpression n, Void arg) {
         printer.print("[");
 
@@ -467,4 +514,127 @@ public class ConstraintPrintVisitor extends DefaultPrettyPrinterVisitor implemen
     public void visit(ListCreationLiteralExpressionElement n, Void arg) {
         n.getValue().accept(this, arg);
     }
+
+    @Override
+    public void visit(final AssignExpr n, final Void arg) {
+        printOrphanCommentsBeforeThisChildNode(n);
+        printComment(n.getComment(), arg);
+
+        Expression e = n.getTarget();
+
+        MethodUsage setter = getSetter(e);
+
+        if (setter == null) {
+            printOrphanCommentsBeforeThisChildNode(n);
+            printComment(n.getComment(), arg);
+            n.getTarget().accept(this, arg);
+            if (getOption(ConfigOption.SPACE_AROUND_OPERATORS).isPresent()) {
+                printer.print(" ");
+            }
+            printer.print(n.getOperator().asString());
+            if (getOption(ConfigOption.SPACE_AROUND_OPERATORS).isPresent()) {
+                printer.print(" ");
+            }
+            n.getValue().accept(this, arg);
+        } else {
+            Expression e2 = ((FieldAccessExpr) e).getScope();
+            printer.print( e2.toString() + "." + setter.getName() + "(");
+
+            if (n.getOperator() != Operator.ASSIGN) {
+                MethodUsage getter = getAccessor("get", (FieldAccessExpr) e, 0);
+
+                printComment(n.getComment(), arg);
+                ((FieldAccessExpr) e).getScope().accept(this, arg);
+
+                printer.print("." + getter.getName() + "()");
+
+                String oper = n.getOperator().asString();
+                oper = oper.substring(0, oper.length()-1);
+                printer.print(oper);
+            }
+
+            n.getValue().accept(this, arg);
+            printer.print(")");
+        }
+    }
+
+    private static MethodUsage getSetter(Expression e) {
+        MethodUsage setter = null;
+        if (e instanceof FieldAccessExpr) {
+            setter = getAccessor("set", ((FieldAccessExpr) e), 1);
+        }
+        return setter;
+    }
+
+    @Override
+    public void visit(FieldAccessExpr n, Void arg) {
+        //super.visit(n, arg);
+        //logPhase("FieldAccessExpr {}", n);
+        if (n.getParentNode().get() instanceof FieldAccessExpr) {
+            throw new RuntimeException("It shouldn't get this far, the visitor method should have picked this up");
+        }
+
+        MethodUsage getter = getAccessor("get", n, 0);
+
+        printOrphanCommentsBeforeThisChildNode(n);
+        printComment(n.getComment(), arg);
+        n.getScope().accept(this, arg);
+        if (getter != null) {
+            printer.print("." + getter.getName() + "()");
+        } else {
+            printer.print(".");
+            n.getName().accept(this, arg);
+        }
+    }
+
+    private static MethodUsage getAccessor(String get, FieldAccessExpr n, int x) {
+        MethodUsage getter = null;
+        ResolvedType type = n.getScope().calculateResolvedType();
+        ReflectionClassDeclaration d = (ReflectionClassDeclaration) type.asReferenceType().getTypeDeclaration().get();
+        String target = get + n.getNameAsString().toLowerCase();
+        for (MethodUsage candidate : d.getAllMethods()) {
+            if (!candidate.getDeclaration().isStatic() &&
+                candidate.getName().toLowerCase().equals(target) && candidate.getNoParams() == x) {
+                getter = candidate;
+            }
+        }
+        return getter;
+    }
+
+    private Optional<ConfigurationOption> getOption(ConfigOption cOption) {
+        return configuration.get(new DefaultConfigurationOption(cOption));
+    }
+
+    protected void printOrphanCommentsBeforeThisChildNode(final Node node) {
+        if (!getOption(ConfigOption.PRINT_COMMENTS).isPresent()) return;
+        if (node instanceof Comment) return;
+
+        Node parent = node.getParentNode().orElse(null);
+        if (parent == null) return;
+        List<Node> everything = new ArrayList<>(parent.getChildNodes());
+        sortByBeginPosition(everything);
+        int positionOfTheChild = -1;
+        for (int i = 0; i < everything.size(); ++i) { // indexOf is by equality, so this is used to index by identity
+            if (everything.get(i) == node) {
+                positionOfTheChild = i;
+                break;
+            }
+        }
+        if (positionOfTheChild == -1) {
+            throw new AssertionError("I am not a child of my parent.");
+        }
+        int positionOfPreviousChild = -1;
+        for (int i = positionOfTheChild - 1; i >= 0 && positionOfPreviousChild == -1; i--) {
+            if (!(everything.get(i) instanceof Comment)) positionOfPreviousChild = i;
+        }
+        for (int i = positionOfPreviousChild + 1; i < positionOfTheChild; i++) {
+            Node nodeToPrint = everything.get(i);
+            if (!(nodeToPrint instanceof Comment))
+                throw new RuntimeException(
+                        "Expected comment, instead " + nodeToPrint.getClass() + ". Position of previous child: "
+                        + positionOfPreviousChild + ", position of child " + positionOfTheChild);
+            nodeToPrint.accept(this, null);
+        }
+    }
+
 }

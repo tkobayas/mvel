@@ -91,6 +91,6 @@ public class PreprocessTranspiler {
                     s.remove();
                 });
 
-        return new TranspiledBlockResult(mvelExpression.getStatements(), analyser.getUsed());
+        return new TranspiledBlockResult(mvelExpression.getStatements(), context.getDeclarations(), analyser.getUsed(), context.getTypeResolver().getImports());
     }
 }

@@ -16,6 +16,20 @@
 
 package org.mvel3;
 
+import com.github.javaparser.JavaParser;
+import com.github.javaparser.ParserConfiguration;
+import com.github.javaparser.ast.expr.AssignExpr;
+import com.github.javaparser.ast.expr.FieldAccessExpr;
+import com.github.javaparser.ast.expr.VariableDeclarationExpr;
+import com.github.javaparser.ast.type.VarType;
+import com.github.javaparser.resolution.types.ResolvedType;
+import com.github.javaparser.symbolsolver.JavaSymbolSolver;
+import com.github.javaparser.symbolsolver.model.resolution.TypeSolver;
+import com.github.javaparser.symbolsolver.model.typesystem.ReferenceTypeImpl;
+import com.github.javaparser.symbolsolver.reflectionmodel.ReflectionClassDeclaration;
+import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
+import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver;
+import org.mvel3.parser.MvelParser;
 import org.mvel3.util.MethodUtils;
 import org.junit.Test;
 
@@ -23,7 +37,9 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
+import static com.github.javaparser.Providers.provider;
 import static org.assertj.core.api.Assertions.assertThat;
+import static com.github.javaparser.ParserConfiguration.LanguageLevel.JAVA_11;
 
 public class MVELTranspilerTest implements TranspilerTest {
 
@@ -592,20 +608,20 @@ public class MVELTranspilerTest implements TranspilerTest {
     public void testMixArrayMap() {
         test(ctx -> ctx.addDeclaration("$p", Person.class),
              "{ " +
-                     "    m = new HashMap();\n" +
-                     "    l = new ArrayList();\n" +
+                     "    var m = new HashMap();\n" +
+                     "    var l = new ArrayList();\n" +
                      "    l.add(\"first\");\n" +
                      "    m.put(\"content\", l);\n" +
                      "    System.out.println(((ArrayList)m[\"content\"])[0]);\n" +
                      "    list.add(((ArrayList)m[\"content\"])[0]);\n" +
                      "}",
              "{ " +
-                     "    java.util.HashMap m = new java.util.HashMap();\n" +
-                     "    java.util.ArrayList l = new java.util.ArrayList();\n" +
+                     "    var m = new HashMap();\n" +
+                     "    var l = new ArrayList();\n" +
                      "    l.add(\"first\");\n" +
                      "    m.put(\"content\", l);\n" +
-                     "    System.out.println(((java.util.ArrayList) m.get(\"content\")).get(0));\n" +
-                     "    list.add(((java.util.ArrayList) m.get(\"content\")).get(0));\n" +
+                     "    System.out.println(((ArrayList) m.get(\"content\")).get(0));\n" +
+                     "    list.add(((ArrayList) m.get(\"content\")).get(0));\n" +
                      "}");
     }
 
@@ -925,6 +941,82 @@ public class MVELTranspilerTest implements TranspilerTest {
              "  $person.setAddress($newAddress);\n" +
              "}\n" +
              "}");
+    }
+
+    @Test
+    public void testSetterOnVarRewrite() {
+        test(
+             "{" +
+             "    Person p = new Person(\"yoda\");\n" +
+             "    p.age = 100; \n" +
+             "}",
+             "{\n" +
+             "    Person p = new Person(\"yoda\");\n" +
+             "    p.setAge(100); \n" +
+             "}"
+            );
+    }
+
+    @Test
+    public void testSetterOnInferredVarRewrite() {
+        test(
+                "{" +
+                "    var p = new Person(\"yoda\");\n" +
+                "    p.age = 100; \n" +
+                "}\n",
+                "{\n" +
+                "    var p = new Person(\"yoda\");\n" +
+                "    p.setAge(100); \n" +
+                "}\n"
+            );
+    }
+
+    @Test
+    public void testSetterOnMethodReturnRewrite() {
+        test(
+                "{" +
+                "    " + MVELTranspilerTest.class.getCanonicalName() + ".createPerson(\"yoda\").age = 100;\n" +
+                "}",
+                "{\n" +
+                 "    " + MVELTranspilerTest.class.getCanonicalName() + ".createPerson(\"yoda\").setAge(100);\n" +
+                "}"
+            );
+    }
+
+    @Test
+    public void testGetterRewriteOnAssign() {
+        test(
+                "{" +
+                "    var p = new Person(\"yoda\");\n" +
+                "    p.age = 100; \n" +
+                "    int a = p.age; \n" +
+                "}\n",
+                "{\n" +
+                "    var p = new Person(\"yoda\");\n" +
+                "    p.setAge(100); \n" +
+                "    int a = p.getAge(); \n" +
+                "}\n"
+            );
+    }
+
+    @Test
+    public void testGetterRewriteInArgument() {
+        test(
+                "{" +
+                "    var p = new Person(\"yoda\");\n" +
+                "    p.age = 100; \n" +
+                "    System.out.println(p.age); \n" +
+                "}\n",
+                "{\n" +
+                "    var p = new Person(\"yoda\");\n" +
+                "    p.setAge(100); \n" +
+                "    System.out.println(p.getAge()); \n" +
+                "}\n"
+            );
+    }
+
+    public static Person createPerson(String name) {
+        return new Person(name);
     }
 
     @Test

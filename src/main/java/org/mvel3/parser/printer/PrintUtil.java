@@ -25,9 +25,9 @@ public class PrintUtil {
 
     public static String printNode(Node node) {
         PrinterConfiguration prettyPrinterConfiguration = new DefaultPrinterConfiguration();
-        ConstraintPrintVisitor constraintPrintVisitor = new ConstraintPrintVisitor(prettyPrinterConfiguration);
-        node.accept(constraintPrintVisitor, null);
-        return constraintPrintVisitor.toString();
+        MVELPrintVisitor MVELPrintVisitor = new MVELPrintVisitor(prettyPrinterConfiguration);
+        node.accept(MVELPrintVisitor, null);
+        return MVELPrintVisitor.toString();
     }
 
 }

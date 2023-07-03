@@ -38,8 +38,15 @@ import com.github.javaparser.ast.expr.StringLiteralExpr;
 import com.github.javaparser.ast.expr.TextBlockLiteralExpr;
 import com.github.javaparser.ast.expr.UnaryExpr;
 import com.github.javaparser.ast.expr.VariableDeclarationExpr;
+import com.github.javaparser.ast.nodeTypes.NodeWithSimpleName;
 import com.github.javaparser.ast.stmt.ExpressionStmt;
 import com.github.javaparser.ast.stmt.YieldStmt;
+import com.github.javaparser.ast.type.ArrayType;
+import com.github.javaparser.ast.type.ClassOrInterfaceType;
+import com.github.javaparser.ast.type.PrimitiveType;
+import com.github.javaparser.ast.type.TypeParameter;
+import com.github.javaparser.ast.type.VarType;
+import com.github.javaparser.ast.type.WildcardType;
 import org.mvel3.parser.ast.visitor.DrlGenericVisitorWithDefaults;
 import org.mvel3.transpiler.RHSPhase.Context;
 import org.mvel3.transpiler.ast.ObjectCreationExpressionT;
@@ -358,7 +365,7 @@ public class RHSPhase extends DrlGenericVisitorWithDefaults<TypedExpression, Con
             TypedExpression compiledArgument = e.accept(this, arg);
             constructorArguments.add(compiledArgument);
         }
-        return new ObjectCreationExpressionT(constructorArguments, resolveType(n.getType()));
+        return new ObjectCreationExpressionT(constructorArguments, n.getType(), resolveType(n.getType()));
     }
 
     @Override
@@ -385,7 +392,7 @@ public class RHSPhase extends DrlGenericVisitorWithDefaults<TypedExpression, Con
     @Override
     public TypedExpression visit(CastExpr n, Context arg) {
         TypedExpression innerExpr = n.getExpression().accept(this, arg);
-        return new CastExprT(innerExpr, resolveType(n.getType()));
+        return new CastExprT(innerExpr, n.getType(), resolveType(n.getType()));
     }
 
     @Override
@@ -412,7 +419,21 @@ public class RHSPhase extends DrlGenericVisitorWithDefaults<TypedExpression, Con
     }
 
     private Class<?> resolveType(com.github.javaparser.ast.type.Type type) {
-        return mvelTranspilerContext.resolveType(type.asString());
+        if (type instanceof ClassOrInterfaceType) {
+            return mvelTranspilerContext.resolveType(((NodeWithSimpleName)type).getNameAsString());
+        } else if (type instanceof TypeParameter) {
+            //return mvelTranspilerContext.resolveType(((NodeWithSimpleName)type).getNameAsString());
+        } else if (type instanceof ArrayType) {
+            //throw new RuntimeException("Unsupported Type");
+        } else if (type instanceof PrimitiveType) {
+            //throw new RuntimeException("Unsupported Type");
+        } else if (type instanceof VarType) {
+            //throw new RuntimeException("Unsupported Type");
+        } else if (type instanceof WildcardType) {
+            //throw new RuntimeException("Unsupported Type");
+        }
+
+        return mvelTranspilerContext.resolveType(type.toString());
     }
 }
 
