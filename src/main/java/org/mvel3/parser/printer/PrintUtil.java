@@ -18,16 +18,24 @@
 package org.mvel3.parser.printer;
 
 import com.github.javaparser.ast.Node;
+import com.github.javaparser.printer.DefaultPrettyPrinterVisitor;
 import com.github.javaparser.printer.configuration.DefaultPrinterConfiguration;
 import com.github.javaparser.printer.configuration.PrinterConfiguration;
+import com.github.javaparser.resolution.TypeSolver;
 
 public class PrintUtil {
 
     public static String printNode(Node node) {
+        return printNode(node, null);
+    }
+
+    public static String printNode(Node node, TypeSolver typeSolver) {
         PrinterConfiguration prettyPrinterConfiguration = new DefaultPrinterConfiguration();
-        MVELPrintVisitor MVELPrintVisitor = new MVELPrintVisitor(prettyPrinterConfiguration);
-        node.accept(MVELPrintVisitor, null);
-        return MVELPrintVisitor.toString();
+        //MVELPrintVisitor mvelPrintVisitor = new MVELPrintVisitor(prettyPrinterConfiguration, typeSolver);
+        DefaultPrettyPrinterVisitor printVisitor = new DefaultPrettyPrinterVisitor(prettyPrinterConfiguration);
+
+        node.accept(printVisitor, null);
+        return printVisitor.toString();
     }
 
 }

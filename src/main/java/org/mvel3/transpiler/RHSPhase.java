@@ -218,8 +218,9 @@ public class RHSPhase extends DrlGenericVisitorWithDefaults<TypedExpression, Con
     }
 
     private Optional<TypedExpression> asEnum(SimpleName n) {
-        Optional<Class<?>> enumType = mvelTranspilerContext.findEnum(n.asString());
-        return enumType.map(clazz -> new SimpleNameTExpr(n.asString(), clazz));
+//        Optional<Class<?>> enumType = mvelTranspilerContext.findEnum(n.asString());
+//        return enumType.map(clazz -> new SimpleNameTExpr(n.asString(), clazz));
+        return null; // (mdp)
     }
 
     private Optional<TypedExpression> asPropertyAccessor(SimpleName n, Context arg) {
@@ -419,21 +420,22 @@ public class RHSPhase extends DrlGenericVisitorWithDefaults<TypedExpression, Con
     }
 
     private Class<?> resolveType(com.github.javaparser.ast.type.Type type) {
-        if (type instanceof ClassOrInterfaceType) {
-            return mvelTranspilerContext.resolveType(((NodeWithSimpleName)type).getNameAsString());
-        } else if (type instanceof TypeParameter) {
-            //return mvelTranspilerContext.resolveType(((NodeWithSimpleName)type).getNameAsString());
-        } else if (type instanceof ArrayType) {
-            //throw new RuntimeException("Unsupported Type");
-        } else if (type instanceof PrimitiveType) {
-            //throw new RuntimeException("Unsupported Type");
-        } else if (type instanceof VarType) {
-            //throw new RuntimeException("Unsupported Type");
-        } else if (type instanceof WildcardType) {
-            //throw new RuntimeException("Unsupported Type");
-        }
-
-        return mvelTranspilerContext.resolveType(type.toString());
+//        if (type instanceof ClassOrInterfaceType) {
+//            return mvelTranspilerContext.resolveType(((NodeWithSimpleName)type).getNameAsString());
+//        } else if (type instanceof TypeParameter) {
+//            //return mvelTranspilerContext.resolveType(((NodeWithSimpleName)type).getNameAsString());
+//        } else if (type instanceof ArrayType) {
+//            //throw new RuntimeException("Unsupported Type");
+//        } else if (type instanceof PrimitiveType) {
+//            //throw new RuntimeException("Unsupported Type");
+//        } else if (type instanceof VarType) {
+//            //throw new RuntimeException("Unsupported Type");
+//        } else if (type instanceof WildcardType) {
+//            //throw new RuntimeException("Unsupported Type");
+//        }
+//
+//        return mvelTranspilerContext.resolveType(type.toString());
+        return null; //(mdp)
     }
 }
 

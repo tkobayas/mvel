@@ -57,7 +57,7 @@ public class DrlxParser {
     }
 
     private static <T extends Node> T simplifiedParse(ParseStart<T> context, Provider provider) {
-        ParseResult<T> result = new MvelParser().parse(context, provider);
+        ParseResult<T> result = new StaticMvelParser().parse(context, provider);
         if (result.isSuccessful()) {
             return result.getResult().orElseThrow(() -> new IllegalStateException("ParseResult doesn't contain any result although marked as successful!"));
         }

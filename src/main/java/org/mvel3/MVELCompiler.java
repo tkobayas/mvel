@@ -32,7 +32,9 @@ import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public class MVELCompiler {
@@ -72,7 +74,7 @@ public class MVELCompiler {
                                                      Map<String, Class> types,
                                                      ClassLoader classLoader,
                                                      String... returnVars) {
-        TranspiledResult input = MVELTranspiler.transpile(expression, types, classLoader);
+        TranspiledResult input = MVELTranspiler.transpile(expression, getImports(), types);
 
         return new CompilationUnitGenerator().createMapEvaluatorUnit(expression, input, types, returnVars);
     }
@@ -83,7 +85,7 @@ public class MVELCompiler {
                                                        String... returnVars) {
 
         Map<String, Class> typeMap = Arrays.stream(types).collect(Collectors.toMap(v -> v.getName(), v -> v.getClazz()));
-        TranspiledResult input = MVELTranspiler.transpile(expression, typeMap, classLoader);
+        TranspiledResult input = MVELTranspiler.transpile(expression, getImports(), typeMap);
 
         return new CompilationUnitGenerator().createArrayEvaluatorUnit(expression, input, types, returnVars);
     }
@@ -106,7 +108,7 @@ public class MVELCompiler {
             map.put(var, method.getReturnType());
         }
 
-        TranspiledResult input = MVELTranspiler.transpile(expression, map, classLoader);
+        TranspiledResult input = MVELTranspiler.transpile(expression, getImports(), map);
 
         return new CompilationUnitGenerator().createPojoEvaluatorUnit(expression, input, contextClass, returnClass, methods);
     }
@@ -159,4 +161,17 @@ public class MVELCompiler {
         KieMemoryCompiler.compile(classManager, sources, classLoader);
     }
 
+
+    public static Set<String> getImports() {
+
+        Set<String> imports = new HashSet<>();
+        imports.add("java.util.List");
+        imports.add("java.util.ArrayList");
+        imports.add("java.util.HashMap");
+        imports.add("java.util.Map");
+        imports.add("java.math.BigDecimal");
+        imports.add("org.mvel3.Address");
+
+        return imports;
+    }
 }

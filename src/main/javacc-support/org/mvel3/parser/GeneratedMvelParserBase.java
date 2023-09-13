@@ -49,7 +49,7 @@ import static com.github.javaparser.ast.type.ArrayType.wrapInArrayTypes;
 import static com.github.javaparser.utils.Utils.assertNotNull;
 
 /**
- * Base class for {@link GeneratedJavaParser}
+ * Base class for {@link GeneratedMvelParser}
  */
 abstract class GeneratedMvelParserBase {
     //// Interface with the generated code
@@ -151,8 +151,8 @@ abstract class GeneratedMvelParserBase {
      */
     JavaToken orIfInvalid(JavaToken firstChoice, JavaToken secondChoice) {
         if (storeTokens) {
-        	assertNotNull(firstChoice);
-        	assertNotNull(secondChoice);
+            assertNotNull(firstChoice);
+            assertNotNull(secondChoice);
             if (firstChoice.valid() || secondChoice.invalid()) {
                 return firstChoice;
             }
@@ -184,8 +184,7 @@ abstract class GeneratedMvelParserBase {
     /* Sets the kind of the last matched token to newKind */
     void setTokenKind(int newKind) {
         // MVEL: setKind is private
-        org.mvel3.parser.JavaToken token = (org.mvel3.parser.JavaToken) token();
-        token.setKind(newKind);
+        org.mvel3.parser.JavaTokenHelper.setKind(token(), newKind);
     }
 
     /* Makes the parser keep a list of tokens */
@@ -405,9 +404,9 @@ abstract class GeneratedMvelParserBase {
                 sb.append(image);
             } else {
                 sb.append(" ")
-                        .append(escapedTokenText)
-                        .append(" ")
-                        .append(image);
+                  .append(escapedTokenText)
+                  .append(" ")
+                  .append(image);
             }
             token = token.next;
         }
@@ -415,8 +414,8 @@ abstract class GeneratedMvelParserBase {
         if (exception.expectedTokenSequences.length != 0) {
             int numExpectedTokens = exception.expectedTokenSequences.length;
             sb.append(", expected")
-                    .append(numExpectedTokens == 1 ? "" : " one of ")
-                    .append(expected.toString());
+              .append(numExpectedTokens == 1 ? "" : " one of ")
+              .append(expected.toString());
         }
         return sb.toString();
     }

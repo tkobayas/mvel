@@ -49,7 +49,7 @@ public class TranspiledExpressionResult implements TranspiledResult {
         return type;
     }
 
-    public String resultAsString() {
+    public String asString() {
         return printNode(expression);
     }
 

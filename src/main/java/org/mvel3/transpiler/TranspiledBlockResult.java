@@ -22,12 +22,10 @@ import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.stmt.BlockStmt;
 import com.github.javaparser.ast.stmt.Statement;
-import com.github.javaparser.symbolsolver.JavaSymbolSolver;
-import org.mvel3.parser.MvelParser;
-import org.mvel3.transpiler.context.Declaration;
+import org.mvel3.parser.printer.MVELToJavaRewriter;
+import org.mvel3.transpiler.context.MvelTranspilerContext;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import static org.mvel3.parser.printer.PrintUtil.printNode;
@@ -36,52 +34,64 @@ public class TranspiledBlockResult implements TranspiledResult {
 
     private List<Statement> statements;
 
-    private Set<String> inputs;
+    private MvelTranspilerContext context;
 
-    private Map<String, Declaration> declarations;
-
-    private Set<String> imports;
-
-    public TranspiledBlockResult(List<Statement> statements, Map<String, Declaration> declarations, Set<String> inputs, Set<String> imports) {
+    public TranspiledBlockResult(List<Statement> statements, MvelTranspilerContext context) {
         this.statements = statements;
-        this.declarations = declarations;
-        this.inputs = inputs;
-        this.imports = imports;
+        this.context = context;
     }
 
-    public String resultAsString() {
+    public String asString() {
 
         CompilationUnit unit = new CompilationUnit();
-        imports.stream().forEach(s -> unit.addImport(s));
+
+        context.getImports().stream().forEach(s -> unit.addImport(s));
+        context.getStaticImports().stream().forEach(s -> unit.addImport(s, true, false));
 
         ClassOrInterfaceDeclaration cls = unit.addClass("DummyClass");
 
-        inputs.stream().forEach( var -> cls.addPrivateField(declarations.get(var).getClazz(), var));
-        //cls.addField()
+        context.getInputs().stream().forEach( var -> cls.addPrivateField(context.getDeclarations().get(var).getClazz(), var));
 
         MethodDeclaration method = cls.addMethod("dummyMethod");
         BlockStmt stmt = statementResults();
         method.setBody(stmt);
 
-        MvelParser.getStaticConfiguration().getSymbolResolver().ifPresent( c -> ((JavaSymbolSolver)c).inject(unit));
+        context.getSymbolResolver().inject(unit);
 
-        return printNode(stmt);
+        MVELToJavaRewriter rewriter = new MVELToJavaRewriter(context);
+
+
+        rewriter.rewriteChildren(stmt);
+
+//        MVELToJavaVisitor1 mvelToJava1 = new MVELToJavaVisitor1(StaticMvelParser.getStaticTypeSolver());
+//        mvelToJava1.visit(stmt, null);
+//
+//        MVELToJavaVisitor2 mvelToJava = new MVELToJavaVisitor2(StaticMvelParser.getStaticTypeSolver());
+//        mvelToJava.findAndRewriteBinExpr(stmt);
+//        mvelToJava.visit(stmt, null);
+
+        return printNode(stmt, context.getTypeSolver());
     }
 
     @Override
     public BlockStmt statementResults() {
-        return new BlockStmt(NodeList.nodeList(statements));
+        if (statements.size() == 1 && statements.get(0) instanceof BlockStmt) {
+            return (BlockStmt) statements.get(0);
+        } else {
+            NodeList<Statement> nodeList = NodeList.nodeList(statements);
+            return new BlockStmt(nodeList);
+        }
     }
 
     @Override
     public Set<String> getInputs() {
-        return inputs;
+        return context.getInputs();
     }
 
     @Override
     public String toString() {
         return "ParsingResult{" +
-                "statements='" + resultAsString() + '\'' +
-                '}';
+               "statements='" + asString() + '\'' +
+               '}';
     }
 }

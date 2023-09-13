@@ -403,9 +403,10 @@ public class LHSPhase extends DrlGenericVisitorWithDefaults<TypedExpression, Voi
     }
 
     private Class<?> getRHSorLHSType(VariableDeclarator n) {
-        return mvelTranspilerContext.resolveType(n.getType() instanceof ClassOrInterfaceType ?
-                n.getType().asClassOrInterfaceType().getNameAsString() :
-                n.getType().asString());
+//        return mvelTranspilerContext.resolveType(n.getType() instanceof ClassOrInterfaceType ?
+//                n.getType().asClassOrInterfaceType().getNameAsString() :
+//                n.getType().asString());
+        return null; // (mdp)
     }
 
     private void logPhase(String phase, Node statement) {

@@ -36,6 +36,7 @@ import com.github.javaparser.ast.visitor.GenericVisitor;
 import com.github.javaparser.ast.visitor.VoidVisitor;
 import com.github.javaparser.metamodel.JavaParserMetaModel;
 import com.github.javaparser.metamodel.LongLiteralExprMetaModel;
+import com.github.javaparser.symbolsolver.javaparsermodel.TypeExtractor;
 import org.mvel3.parser.ast.visitor.DrlGenericVisitor;
 import org.mvel3.parser.ast.visitor.DrlVoidVisitor;
 
@@ -66,12 +67,18 @@ public final class BigDecimalLiteralExpr extends LiteralStringValueExpr {
 
     @Override
     public <R, A> R accept(GenericVisitor<R, A> v, A arg) {
+        if ( v instanceof TypeExtractor) {
+            //((TypeExtractor)v).
+        }
+
         return ((DrlGenericVisitor<R, A>) v).visit(this, arg);
     }
 
     @Override
     public <A> void accept(VoidVisitor<A> v, A arg) {
-        ((DrlVoidVisitor<A>) v).visit(this, arg);
+        if (v instanceof  DrlVoidVisitor) {
+            ((DrlVoidVisitor<A>) v).visit(this, arg);
+        }
     }
 
     @Override

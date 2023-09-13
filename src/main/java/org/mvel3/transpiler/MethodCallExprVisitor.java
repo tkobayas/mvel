@@ -71,18 +71,19 @@ public class MethodCallExprVisitor extends DrlGenericVisitorWithDefaults<TypedEx
     }
 
     private Optional<TypedExpression> parseMethodFromDeclaredFunction(MethodCallExpr n, List<TypedExpression> arguments) {
-
-        Optional<DeclaredFunction> optDeclaredFunction = mvelTranspilerContext.findDeclaredFunction(n.getNameAsString());
-
-        if(optDeclaredFunction.isEmpty()) return Optional.empty();
-
-        DeclaredFunction declaredFunction = optDeclaredFunction.get();
-
-        Optional<Class<?>> methodReturnType = declaredFunction.findReturnType();
-        List<Class<?>> actualArgumentTypes = declaredFunction.findArgumentsType();
-
-        return methodReturnType.map(t -> new MethodCallExprT(n.getName().asString(), Optional.empty(), arguments,
-                                                             actualArgumentTypes, Optional.of(t)));
+//
+//        Optional<DeclaredFunction> optDeclaredFunction = mvelTranspilerContext.findDeclaredFunction(n.getNameAsString());
+//
+//        if(optDeclaredFunction.isEmpty()) return Optional.empty();
+//
+//        DeclaredFunction declaredFunction = optDeclaredFunction.get();
+//
+//        Optional<Class<?>> methodReturnType = declaredFunction.findReturnType();
+//        List<Class<?>> actualArgumentTypes = declaredFunction.findArgumentsType();
+//
+//        return methodReturnType.map(t -> new MethodCallExprT(n.getName().asString(), Optional.empty(), arguments,
+//                                                             actualArgumentTypes, Optional.of(t)));
+        return null; // (mdp)
     }
 
     private MethodCallExprT parseMethod(MethodCallExpr n,
@@ -90,34 +91,35 @@ public class MethodCallExprVisitor extends DrlGenericVisitorWithDefaults<TypedEx
                                         TypedExpression name,
                                         List<TypedExpression> arguments,
                                         Class<?>[] argumentsType) {
-        Optional<Method> method = scope.flatMap(TypedExpression::getType)
-                .<Class<?>>map(ClassUtils::classFromType)
-                .map(scopeClazz -> MethodUtils.findMethod(scopeClazz, n.getNameAsString(), argumentsType));
-
-        if(method.isEmpty()) {
-            method = mvelTranspilerContext.getRootPattern()
-                                          .map(scopeClazz -> MethodUtils.findMethod(scopeClazz, n.getNameAsString(), argumentsType));
-            if(method.isPresent()) {
-                scope = mvelTranspilerContext.createRootTypePrefix();
-            }
-        }
-
-        if(method.isEmpty()) {
-            method = mvelTranspilerContext.findStaticMethod(n.getNameAsString());
-        }
-
-        Optional<Method> finalMethod = method;
-        Optional<Type> methodReturnType =
-                name.getType()
-                        .map(Optional::of)
-                        .orElseGet(() -> finalMethod.map(Method::getReturnType));
-
-        List<Class<?>> actualArgumentType = optionalToStream(method)
-                .flatMap((Method m) -> Arrays.stream(m.getParameterTypes()))
-                .collect(Collectors.toList());
-
-        return new MethodCallExprT(n.getName().asString(), scope, arguments,
-                                   actualArgumentType, methodReturnType);
+//        Optional<Method> method = scope.flatMap(TypedExpression::getType)
+//                .<Class<?>>map(ClassUtils::classFromType)
+//                .map(scopeClazz -> MethodUtils.findMethod(scopeClazz, n.getNameAsString(), argumentsType));
+//
+//        if(method.isEmpty()) {
+//            method = mvelTranspilerContext.getRootPattern()
+//                                          .map(scopeClazz -> MethodUtils.findMethod(scopeClazz, n.getNameAsString(), argumentsType));
+//            if(method.isPresent()) {
+//                scope = mvelTranspilerContext.createRootTypePrefix();
+//            }
+//        }
+//
+//        if(method.isEmpty()) {
+//            method = mvelTranspilerContext.findStaticMethod(n.getNameAsString());
+//        }
+//
+//        Optional<Method> finalMethod = method;
+//        Optional<Type> methodReturnType =
+//                name.getType()
+//                        .map(Optional::of)
+//                        .orElseGet(() -> finalMethod.map(Method::getReturnType));
+//
+//        List<Class<?>> actualArgumentType = optionalToStream(method)
+//                .flatMap((Method m) -> Arrays.stream(m.getParameterTypes()))
+//                .collect(Collectors.toList());
+//
+//        return new MethodCallExprT(n.getName().asString(), scope, arguments,
+//                                   actualArgumentType, methodReturnType);
+        return null; // (mdp)
     }
 
     private Class<?>[] parametersType(List<TypedExpression> arguments) {

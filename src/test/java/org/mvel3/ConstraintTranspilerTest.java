@@ -100,21 +100,24 @@ public class ConstraintTranspilerTest implements TranspilerTest {
                                String inputExpression,
                                String expectedResult,
                                Consumer<TranspiledExpressionResult> resultAssert) {
-        Set<String> imports = new HashSet<>();
-        imports.add("java.util.List");
-        imports.add("java.util.ArrayList");
-        imports.add("java.util.HashMap");
-        imports.add("java.util.Map");
-        imports.add("java.math.BigDecimal");
-        imports.add("org.mvel3.Address");
-        imports.add(Person.class.getCanonicalName());
-        imports.add(Gender.class.getCanonicalName());
-        TypeResolver typeResolver = new ClassTypeResolver(imports, this.getClass().getClassLoader());
-        MvelTranspilerContext mvelTranspilerContext = new MvelTranspilerContext(typeResolver);
-        testFunction.accept(mvelTranspilerContext);
-        TranspiledExpressionResult compiled = new ConstraintTranspiler(mvelTranspilerContext).compileExpression(inputExpression);
-        verifyBodyWithBetterDiff(expectedResult, compiled.resultAsString());
-        resultAssert.accept(compiled);
+        throw new RuntimeException("Fix this test"); // (mdp)
+//        Set<String> imports = new HashSet<>();
+//        imports.add("java.util.List");
+//        imports.add("java.util.ArrayList");
+//        imports.add("java.util.HashMap");
+//        imports.add("java.util.Map");
+//        imports.add("java.math.BigDecimal");
+//        imports.add("org.mvel3.Address");
+//        imports.add(Person.class.getCanonicalName());
+//        imports.add(Gender.class.getCanonicalName());
+//        TypeResolver typeResolver = new ClassTypeResolver(imports, this.getClass().getClassLoader());
+//        MvelTranspilerContext mvelTranspilerContext = new MvelTranspilerContext(typeResolver);
+//        testFunction.accept(mvelTranspilerContext);
+//        TranspiledExpressionResult compiled = new ConstraintTranspiler(mvelTranspilerContext).compileExpression(inputExpression);
+//
+//
+//        verifyBodyWithBetterDiff(expectedResult, compiled.resultAsString());
+//        resultAssert.accept(compiled);
     }
 
     void testExpression(Consumer<MvelTranspilerContext> testFunction,

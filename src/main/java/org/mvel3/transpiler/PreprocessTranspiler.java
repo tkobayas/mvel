@@ -23,7 +23,7 @@ import com.github.javaparser.ast.expr.NameExpr;
 import com.github.javaparser.ast.expr.StringLiteralExpr;
 import com.github.javaparser.ast.expr.TextBlockLiteralExpr;
 import com.github.javaparser.ast.stmt.BlockStmt;
-import org.mvel3.parser.MvelParser;
+import org.mvel3.parser.StaticMvelParser;
 import org.mvel3.parser.ast.expr.ModifyStatement;
 import org.mvel3.transpiler.context.MvelTranspilerContext;
 import org.mvel3.util.ClassTypeResolver;
@@ -44,53 +44,57 @@ public class PreprocessTranspiler {
     private static final PreprocessPhase preprocessPhase = new PreprocessPhase();
 
     public TranspiledBlockResult compile(String mvelBlock, Consumer<MvelTranspilerContext> updateContextFunc) {
-        Set<String> imports = new HashSet<>();
-        imports.add("java.util.List");
-        imports.add("java.util.ArrayList");
-        imports.add("java.util.HashMap");
-        imports.add("java.util.Map");
-        imports.add("java.math.BigDecimal");
-        imports.add("org.mvel3.Address");
+//        Set<String> imports = new HashSet<>();
+//        imports.add("java.util.List");
+//        imports.add("java.util.ArrayList");
+//        imports.add("java.util.HashMap");
+//        imports.add("java.util.Map");
+//        imports.add("java.math.BigDecimal");
+//        imports.add("org.mvel3.Address");
+//
+//        TypeResolver classTypeResolver = new ClassTypeResolver(imports, PreprocessTranspiler.class.getClassLoader());
+//        MvelTranspilerContext context = new MvelTranspilerContext(classTypeResolver);
+//        updateContextFunc.accept(context);
+//
+//        BlockStmt mvelExpression = StaticMvelParser.parseBlock(mvelBlock);
+//
+//        VariableAnalyser analyser = new VariableAnalyser(context.getDeclarations().keySet());
+//        mvelExpression.accept(analyser, null);
+//
+//        preprocessPhase.removeEmptyStmt(mvelExpression);
+//
+//        mvelExpression.findAll(TextBlockLiteralExpr.class).forEach(e -> {
+//            Optional<Node> parentNode = e.getParentNode();
+//
+//            StringLiteralExpr stringLiteralExpr = preprocessPhase.replaceTextBlockWithConcatenatedStrings(e);
+//
+//            parentNode.ifPresent(p -> {
+//                if(p instanceof VariableDeclarator) {
+//                    ((VariableDeclarator) p).setInitializer(stringLiteralExpr);
+//                } else if(p instanceof MethodCallExpr) {
+//                    // """exampleString""".formatted("arg0", 2);
+//                    ((MethodCallExpr) p).setScope(stringLiteralExpr);
+//                }
+//            });
+//        });
+//
+//        mvelExpression.findAll(ModifyStatement.class)
+//                .forEach(s -> {
+//                    Optional<Node> parentNode = s.getParentNode();
+//                    PreprocessPhase.PreprocessPhaseResult invoke = preprocessPhase.invoke(s);
+//                    parentNode.ifPresent(p -> {
+//                        BlockStmt parentBlock = (BlockStmt) p;
+//                        for (String modifiedFact : invoke.getUsedBindings()) {
+//                            parentBlock.addStatement(new MethodCallExpr(null, "update", nodeList(new NameExpr(modifiedFact))));
+//                        }
+//                    });
+//                    s.remove();
+//                });
 
-        TypeResolver classTypeResolver = new ClassTypeResolver(imports, PreprocessTranspiler.class.getClassLoader());
-        MvelTranspilerContext context = new MvelTranspilerContext(classTypeResolver);
-        updateContextFunc.accept(context);
+//        return new TranspiledBlockResult(mvelExpression.getStatements(), context.getDeclarations(),
+//                                         analyser.getUsed(), context.getTypeResolver().getImports(),
+//                                         StaticMvelParser.getStaticTypeSolver());
 
-        BlockStmt mvelExpression = MvelParser.parseBlock(mvelBlock);
-
-        VariableAnalyser analyser = new VariableAnalyser(context.getDeclarations().keySet());
-        mvelExpression.accept(analyser, null);
-
-        preprocessPhase.removeEmptyStmt(mvelExpression);
-
-        mvelExpression.findAll(TextBlockLiteralExpr.class).forEach(e -> {
-            Optional<Node> parentNode = e.getParentNode();
-
-            StringLiteralExpr stringLiteralExpr = preprocessPhase.replaceTextBlockWithConcatenatedStrings(e);
-
-            parentNode.ifPresent(p -> {
-                if(p instanceof VariableDeclarator) {
-                    ((VariableDeclarator) p).setInitializer(stringLiteralExpr);
-                } else if(p instanceof MethodCallExpr) {
-                    // """exampleString""".formatted("arg0", 2);
-                    ((MethodCallExpr) p).setScope(stringLiteralExpr);
-                }
-            });
-        });
-
-        mvelExpression.findAll(ModifyStatement.class)
-                .forEach(s -> {
-                    Optional<Node> parentNode = s.getParentNode();
-                    PreprocessPhase.PreprocessPhaseResult invoke = preprocessPhase.invoke(s);
-                    parentNode.ifPresent(p -> {
-                        BlockStmt parentBlock = (BlockStmt) p;
-                        for (String modifiedFact : invoke.getUsedBindings()) {
-                            parentBlock.addStatement(new MethodCallExpr(null, "update", nodeList(new NameExpr(modifiedFact))));
-                        }
-                    });
-                    s.remove();
-                });
-
-        return new TranspiledBlockResult(mvelExpression.getStatements(), context.getDeclarations(), analyser.getUsed(), context.getTypeResolver().getImports());
+        return null;
     }
 }

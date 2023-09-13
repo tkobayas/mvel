@@ -16,52 +16,42 @@
 
 package org.mvel3;
 
-import com.github.javaparser.symbolsolver.JavaSymbolSolver;
-import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
-import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver;
-import org.mvel3.parser.MvelParser;
-import org.mvel3.transpiler.TranspiledBlockResult;
 import org.mvel3.transpiler.MVELTranspiler;
+import org.mvel3.transpiler.TranspiledResult;
 import org.mvel3.transpiler.context.MvelTranspilerContext;
-import org.mvel3.util.ClassTypeResolver;
-import org.mvel3.util.TypeResolver;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.Collections;
 import java.util.function.Consumer;
 
-import static com.github.javaparser.ParserConfiguration.LanguageLevel.JAVA_11;
 import static org.assertj.core.api.Assertions.assertThat;
 
 interface TranspilerTest {
 
-    default void test(Consumer<MvelTranspilerContext> testFunction,
+    default void test(Consumer<MvelTranspilerContext> contextUpdater,
                       String inputExpression,
                       String expectedResult,
-                      Consumer<TranspiledBlockResult> resultAssert) {
-        JavaSymbolSolver solver = new JavaSymbolSolver(new CombinedTypeSolver(new ReflectionTypeSolver(false)));
-        MvelParser.getStaticConfiguration()
-                  .setLanguageLevel(JAVA_11)
-                  .setSymbolResolver(solver);
+                      Consumer<TranspiledResult> resultAssert) {
+        Consumer<MvelTranspilerContext> outerContextUpdater = ctx -> {
+            contextUpdater.accept(ctx);
 
-        Set<String> imports = new HashSet<>();
-        imports.add(java.util.List.class.getCanonicalName());
-        imports.add(java.util.ArrayList.class.getCanonicalName());
-        imports.add(java.util.HashMap.class.getCanonicalName());
-        imports.add(java.util.Map.class.getCanonicalName());
-        imports.add(BigDecimal.class.getCanonicalName());
-        imports.add(Address.class.getCanonicalName());
-        imports.add(Person.class.getCanonicalName());
-        imports.add(Gender.class.getCanonicalName());
-        TypeResolver typeResolver = new ClassTypeResolver(imports, this.getClass().getClassLoader());
-        MvelTranspilerContext mvelTranspilerContext = new MvelTranspilerContext(typeResolver);
-        testFunction.accept(mvelTranspilerContext);
-        TranspiledBlockResult compiled = new MVELTranspiler(mvelTranspilerContext).transpileStatement(inputExpression);
-        System.out.println(compiled.resultAsString());
-        verifyBodyWithBetterDiff(expectedResult, compiled.resultAsString());
+            ctx.addImport(java.util.List.class.getCanonicalName());
+            ctx.addImport(java.util.ArrayList.class.getCanonicalName());
+            ctx.addImport(java.util.HashMap.class.getCanonicalName());
+            ctx.addImport(java.util.Map.class.getCanonicalName());
+            ctx.addImport(BigDecimal.class.getCanonicalName());
+            ctx.addImport(BigInteger.class.getCanonicalName());
+            ctx.addImport(Address.class.getCanonicalName());
+            ctx.addImport(Person.class.getCanonicalName());
+            ctx.addImport(Gender.class.getCanonicalName());            
+        };
+
+        TranspiledResult compiled = MVELTranspiler.transpile(inputExpression, Collections.emptyMap(), outerContextUpdater);
+
+        verifyBodyWithBetterDiff(expectedResult, compiled.asString());
         resultAssert.accept(compiled);
     }
 
@@ -75,7 +65,7 @@ interface TranspilerTest {
 
     default void test(String inputExpression,
                       String expectedResult,
-                      Consumer<TranspiledBlockResult> resultAssert) {
+                      Consumer<TranspiledResult> resultAssert) {
         test(id -> {
         }, inputExpression, expectedResult, resultAssert);
     }
@@ -94,7 +84,7 @@ interface TranspilerTest {
         });
     }
 
-    default Collection<String> allUsedBindings(TranspiledBlockResult result) {
+    default Collection<String> allUsedBindings(TranspiledResult result) {
         return new ArrayList<>(result.getInputs());
     }
 }

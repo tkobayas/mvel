@@ -17,6 +17,7 @@
 package org.mvel3;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -27,19 +28,24 @@ public class Person {
     private String name;
     private int age;
 
+    public int publicAge;
+
     private Person parent;
+
+    public Person parentPublic;
+
     private Address address;
     private List<Address> addresses = new ArrayList<>();
     private Gender gender;
-
-    public Person parentPublic;
-    public String nicknamePublic;
+    public String nickName;
 
     private Map<String, String> items = new HashMap<>();
 
     private BigDecimal salary;
 
     private Integer ageAsInteger;
+
+    private BigInteger ageAsBigInteger;
 
     public Person(String name) {
         this(name, null);
@@ -109,6 +115,14 @@ public class Person {
         this.ageAsInteger = ageAsInteger;
     }
 
+    public void setAgeAsBigInteger( BigInteger ageAsBigInteger ) {
+        this.ageAsBigInteger = ageAsBigInteger;
+    }
+
+    public BigInteger getAgeAsBigInteger() {
+        return this.ageAsBigInteger;
+    }
+
     public List<Address> getAddresses() {
         return addresses;
     }
@@ -117,7 +131,19 @@ public class Person {
         this.addresses = addresses;
     }
 
-    public boolean isEven(int value) {
+    public List<String> getStreets() {
+        return null;
+    }
+
+    public String[] getRoads() {
+        return null;
+    }
+
+    public static boolean isEven(int value) {
         return true;
+    }
+
+    public Map<String, BigInteger> getBigIntegerMap() {
+        return null;
     }
 }

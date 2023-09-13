@@ -1,7 +1,6 @@
 /*
  * Copyright (C) 2007-2010 Júlio Vilmar Gesser.
- * Copyright (C) 2011, 2013-2016 The JavaParser Team.
- * Copyright 2019 Red Hat, Inc. and/or its affiliates.
+ * Copyright (C) 2011, 2013-2023 The JavaParser Team.
  *
  * This file is part of JavaParser.
  *
@@ -18,13 +17,20 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
-  * Modified by Red Hat, Inc.
  */
 
 /*
  * -- FILE STRUCTURE --
  * https://javacc.github.io/javacc/documentation/grammar.html#file-structure
  *
+ * <pre>{@code
+ * javacc_input ::= javacc_options
+ *                  "PARSER_BEGIN" "(" <IDENTIFIER> ")"
+ *                  java_compilation_unit
+ *                  "PARSER_END" "(" <IDENTIFIER> ")"
+ *                  ( production )*
+ *                  <EOF>
+ * }</pre>
  */
 
 
@@ -50,7 +56,7 @@ options {
 PARSER_BEGIN(GeneratedMvelParser)
 /*
  * Copyright (C) 2007-2010 Júlio Vilmar Gesser.
- * Copyright (C) 2011, 2013-2020 The JavaParser Team.
+ * Copyright (C) 2011, 2013-2023 The JavaParser Team.
  *
  * This file is part of JavaParser.
  *
@@ -69,6 +75,7 @@ PARSER_BEGIN(GeneratedMvelParser)
  * GNU Lesser General Public License for more details.
  */
 package org.mvel3.parser;
+
 import java.io.*;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
@@ -81,6 +88,7 @@ import org.mvel3.parser.ast.expr.*;
 import com.github.javaparser.ast.stmt.*;
 import com.github.javaparser.ast.type.*;
 import com.github.javaparser.utils.*;
+import com.github.javaparser.JavaParser;
 
 import com.github.javaparser.Problem;
 import com.github.javaparser.TokenRange;
@@ -100,48 +108,26 @@ import static org.mvel3.parser.GeneratedMvelParserTokenManagerBase.*;
 import static com.github.javaparser.ast.stmt.SwitchEntry.Type.*;
 import static org.mvel3.parser.util.AstUtils.*;
 
-
 @Generated("JavaCC")
 final class GeneratedMvelParser extends GeneratedMvelParserBase {
-    private boolean optionalSemicolon = true;
-        private int nestedBlocks = 0;
-        private boolean isWithOrModify = false;
+    private int nestedBlocks = 0;
+    private boolean isWithOrModify = false;
 
-        public void setOptionalSemicolon(boolean optionalSemicolon) {
-            this.optionalSemicolon = optionalSemicolon;
-        }
+    public boolean inBlock() {
+        return nestedBlocks > 0;
+    }
 
-        public boolean shouldTerminateStatement() {
-            Token token = getToken(1);
-            return (this.optionalSemicolon && (
-                        ( token.kind == RBRACE ) ||
-                        ( token.kind == IDENTIFIER ) ||
-                        ( this.isWithOrModify && token.kind == COMMA ) ||
-                        ( token.specialToken != null &&
-                            ( token.specialToken.kind == UNIX_EOL ||
-                              token.specialToken.kind == WINDOWS_EOL ||
-                              token.specialToken.kind == SINGLE_LINE_COMMENT ) ) ) );
+    public void enterBlock() {
+        this.nestedBlocks++;
+    }
 
-        }
-
-        public boolean inBlock() {
-            return nestedBlocks > 0;
-        }
-
-        public void enterBlock() {
-            this.nestedBlocks++;
-        }
-
-        public void leaveBlock() {
-            this.nestedBlocks--;
-        }
+    public void leaveBlock() {
+        this.nestedBlocks--;
+    }
 
     /* Returns the JavaParser specific token type of the last matched token */
     JavaToken token() {
-        if(token.toString() == null) {
-            return null;
-        }
-        return new org.mvel3.parser.JavaToken(token.javaToken.getKind(), token.javaToken.getText());
+        return token.javaToken;
     }
 
     /* Returns the last matched token */
@@ -168,9 +154,7 @@ final class GeneratedMvelParser extends GeneratedMvelParserBase {
     public boolean isPointFreeOperator(String operator) {
         return this.pointFreeOperators.contains(operator);
     }
-
 }
-
 PARSER_END(GeneratedMvelParser)
 
 
@@ -293,9 +277,7 @@ TOKEN_MGR_DECLS :
         // The stack is now filled with tokens in left-to-right order. Process them.
         while(!tokenWorkStack.empty()) {
             token = tokenWorkStack.pop();
-            int tokenKind = token.kind;
-            String tokenText = token.image;
-            token.javaToken = new org.mvel3.parser.JavaToken(tokenKind, tokenText);
+            token.javaToken = org.mvel3.parser.JavaTokenHelper.create(token, tokens);
 
             if(storeTokens) {
                 tokens.add(token.javaToken);
@@ -383,13 +365,16 @@ TOKEN :
 | < LONG: "long" >
 | < NATIVE: "native" >
 | < NEW: "new" >
+| < NON_SEALED: "non-sealed" >
 | < NULL: "null" >
 | < PACKAGE: "package">
+| < PERMITS: "permits">
 | < PRIVATE: "private" >
 | < PROTECTED: "protected" >
 | < PUBLIC: "public" >
 | < RECORD: "record" >
 | < RETURN: "return" >
+| < SEALED: "sealed" >
 | < SHORT: "short" >
 | < STATIC: "static" >
 | < STRICTFP: "strictfp" >
@@ -708,14 +693,14 @@ TOKEN :
           // starts off with unicode backslash
           ("\\u005" ["c", "C"]
               // regular escape sequences
-              (["n","t","b","r","f","\\","'","\""]
+              (["s","n","t","b","r","f","\\","'","\""]
                   // escapes another unicode backslash
                   | ("\\u005" ["c", "C"])))
        |
           ( // TODO: Could these escape sequences be extracted out?
               "\\"
               (
-                  ["n","t","b","r","f","\\","'","\""]
+                  ["s","n","t","b","r","f","\\","'","\""]
                |
                   ["0"-"7"] ( ["0"-"7"] )?
                |
@@ -781,7 +766,7 @@ TOKEN :
           ( // TODO: Could these escape sequences be extracted out?
               "\\"
               (
-                  ["n","t","b","r","f","\\","'","\""]
+                  ["s","n","t","b","r","f","\\","'","\""]
                |
                   ["0"-"7"] ( ["0"-"7"] )?
                |
@@ -1054,8 +1039,6 @@ TOKEN :
 {
   < ASSIGN: "=" >
 // GT - see below
-//| < OR: "or" >
-
 | < LT: "<" >
 | < BANG: "!" >
 | < TILDE: "~" >
@@ -1234,11 +1217,12 @@ PackageDeclaration PackageDeclaration():
 {
     NodeList<AnnotationExpr> annotations = new NodeList<AnnotationExpr>();
     Name name;
-    JavaToken begin;
+    JavaToken begin = INVALID;
+	AnnotationExpr ann;
 }
 {
-    annotations = Annotations()
-    "package" {begin = token();}  name = Name() ";"
+	( ann = Annotation() { annotations = add(annotations, ann); begin = orIfInvalid(begin, ann); } )*
+    "package" {begin = orIfInvalid(begin, token());}  name = Name() ";"
     { return new PackageDeclaration(range(begin, token()), annotations, name); }
 }
 
@@ -1349,6 +1333,10 @@ ModifierHolder Modifiers():
          |
             "default" { add(modifiers, new Modifier(tokenRange(), Modifier.Keyword.DEFAULT));  begin = orIfInvalid(begin, token()); }
          |
+            "sealed" { add(modifiers, new Modifier(tokenRange(), Modifier.Keyword.SEALED));  begin = orIfInvalid(begin, token()); }
+         |
+            "non-sealed" { add(modifiers, new Modifier(tokenRange(), Modifier.Keyword.NON_SEALED));  begin = orIfInvalid(begin, token()); }
+         |
              ann = Annotation() { annotations = add(annotations, ann); begin = orIfInvalid(begin, ann); }
         )
     )*
@@ -1370,13 +1358,14 @@ ModifierHolder Modifiers():
  * Also note that JavaParser handles the hierarchy/specialisations of classes, interfaces, and enums differently to the JLS.
  * <ul>
  *   <li>This {@code ClassOrInterfaceDeclaration} refers to the {@code NormalClassDeclaration} and {@code NormalInterfaceDeclaration},</li>
- *   <li>while {@code AnnotationTypeDeclaration} and {@code EnumDeclaration} are handled separately within this grammar.</li>
+ *   <li>while {@code AnnotationTypeDeclaration}, {@code EnumDeclaration}, and {@code RecordDeclaration} are handled separately within this grammar.</li>
  * </ul>
- * https://docs.oracle.com/javase/specs/jls/se15/html/jls-8.html#jls-8.1
+ * https://docs.oracle.com/javase/specs/jls/se17/html/jls-8.html#jls-8.1
  * <pre>{@code
  *     ClassDeclaration:
  *         NormalClassDeclaration
  *         EnumDeclaration
+ *         RecordDeclaration
  *     NormalClassDeclaration:
  *         {ClassModifier} class TypeIdentifier [TypeParameters] [Superclass] [Superinterfaces] ClassBody
  * }</pre>
@@ -1396,6 +1385,7 @@ ClassOrInterfaceDeclaration ClassOrInterfaceDeclaration(ModifierHolder modifier)
     RangedList<TypeParameter> typePar = new RangedList<TypeParameter>(emptyNodeList());
     NodeList<ClassOrInterfaceType> extList = emptyNodeList();
     NodeList<ClassOrInterfaceType> impList = emptyNodeList();
+    NodeList<ClassOrInterfaceType> permitsList = emptyNodeList();
     NodeList<BodyDeclaration<?>> members = emptyNodeList();
     JavaToken begin = modifier.begin;
 }
@@ -1410,18 +1400,19 @@ ClassOrInterfaceDeclaration ClassOrInterfaceDeclaration(ModifierHolder modifier)
     [ typePar = TypeParameters() ]
     [ extList = ExtendsList() ]
     [ impList = ImplementsList() ]
+    [ permitsList = PermitsList() ]
 
     members = ClassOrInterfaceBody()
 
-    { return new ClassOrInterfaceDeclaration(range(begin, token()), modifier.modifiers, modifier.annotations, isInterface, name, typePar.list, extList, impList, members); }
+    { return new ClassOrInterfaceDeclaration(range(begin, token()), modifier.modifiers, modifier.annotations, isInterface, name, typePar.list, extList, impList, permitsList, members); }
 }
 
 /**
- * https://openjdk.java.net/jeps/395#Java-grammar
+ * https://docs.oracle.com/javase/specs/jls/se17/html/jls-8.html#jls-8.10
  * <pre>{@code
  *     RecordDeclaration:
  *        {ClassModifier} `record` TypeIdentifier [TypeParameters]
- *          RecordHeader [SuperInterfaces] RecordBody
+ *          RecordHeader [ClassImplements] RecordBody
  *
  *      RecordHeader:
  *       `(` [RecordComponentList] `)`
@@ -1430,11 +1421,14 @@ ClassOrInterfaceDeclaration ClassOrInterfaceDeclaration(ModifierHolder modifier)
  *       RecordComponent { `,` RecordComponent}
  *
  *      RecordComponent:
- *       {Annotation} UnannType Identifier
+ *       {RecordComponentModifier} UnannType Identifier
  *       VariableArityRecordComponent
  *
  *      VariableArityRecordComponent:
- *       {Annotation} UnannType {Annotation} `...` Identifier
+ *       {RecordComponentModifier} UnannType {Annotation} `...` Identifier
+ *
+ *      RecordComponentModifier:
+ *       Annotation
  *
  *      RecordBody:
  *        `{` {RecordBodyDeclaration} `}`
@@ -1531,6 +1525,37 @@ NodeList<ClassOrInterfaceType> ImplementsList():
 }
 {
     "implements" cit = AnnotatedClassOrInterfaceType() { ret.add(cit); }
+    ( "," cit = AnnotatedClassOrInterfaceType() { ret.add(cit); } )*
+    { return ret; }
+}
+
+/**
+ * https://docs.oracle.com/javase/specs/jls/se15/html/jls-8.html#jls-8.1.5
+ * <pre>{@code
+ *     ClassPermits:
+ *         permits TypeName {, TypeName}
+ * }</pre>
+ * For convenience:
+ * https://docs.oracle.com/javase/specs/jls/se15/html/jls-4.html#jls-4.3
+ * <pre>{@code
+ *     ClassOrInterfaceType:
+ *         ClassType
+ *         InterfaceType
+ *     ClassType:
+ *         {Annotation} TypeIdentifier [TypeArguments]
+ *         PackageName . {Annotation} TypeIdentifier [TypeArguments]
+ *         ClassOrInterfaceType . {Annotation} TypeIdentifier [TypeArguments]
+ *     InterfaceType:
+ *         ClassType
+ * }</pre>
+ */
+NodeList<ClassOrInterfaceType> PermitsList():
+{
+    NodeList<ClassOrInterfaceType> ret = new NodeList<ClassOrInterfaceType>();
+    ClassOrInterfaceType cit;
+}
+{
+    "permits" cit = AnnotatedClassOrInterfaceType() { ret.add(cit); }
     ( "," cit = AnnotatedClassOrInterfaceType() { ret.add(cit); } )*
     { return ret; }
 }
@@ -1859,6 +1884,9 @@ BodyDeclaration<?> RecordBodyDeclaration():
          |
             LOOKAHEAD("enum")
             ret = EnumDeclaration(modifiers)
+         |
+            LOOKAHEAD("record")
+            ret = RecordDeclaration(modifiers)
          |
             LOOKAHEAD("@" "interface")
             ret = AnnotationTypeDeclaration(modifiers)
@@ -3012,9 +3040,9 @@ String Identifier():
         // TODO: Explain why these keywords are explicitly flagged up as "included", and why they're not already covered by {@code <IDENTIFIER>}.
         // TODO: Explain how / where boolean and null literals are excluded.
         // Make sure the module info keywords don't interfere with normal Java parsing by matching them as normal identifiers.
-        <RULE> | <MODULE> | <REQUIRES> | <TO> | <OPEN> | <OPENS> | <USES> | <EXPORTS> | <PROVIDES> | <TRANSITIVE> |
+        <RULE> | <MODULE>  | <REQUIRES> | <TO> | <WITH> | <OPEN> | <OPENS> | <USES> | <EXPORTS> | <PROVIDES> | <TRANSITIVE> |
         // Make sure older Java versions parse
-        <ENUM> | <STRICTFP> | <YIELD> | <RECORD> |
+        <ENUM> | <STRICTFP> | <YIELD> | <RECORD> | <PERMITS> | <SEALED> |
         // An actual plain old identifier
         <IDENTIFIER>
     ) { ret = token.image; setTokenKind(IDENTIFIER);}
@@ -3054,16 +3082,7 @@ Expression Expression():
             "->"
             lambdaBody = LambdaBody()
             {
-                if (ret instanceof CastExpr) {
-                    ret = generateLambda(ret, lambdaBody);
-                } else if (ret instanceof ConditionalExpr) {
-                    ConditionalExpr ce = (ConditionalExpr) ret;
-                    if(ce.getElseExpr() != null) {
-                        ce.setElseExpr(generateLambda(ce.getElseExpr(), lambdaBody));
-                    }
-                } else {
-                    ret = generateLambda(ret, lambdaBody);
-                }
+                ret = generateLambda(ret, lambdaBody);
             }
          |
             "::"
@@ -3136,7 +3155,7 @@ Expression ConditionalExpression():
         "?"
         left = Expression()
         ":"
-        right = ConditionalExpression()
+        right = Expression()
         // TODO: Examine further re: missing(?) {@code LambdaExpression} or whether it is permissive enough to include it.
         {
             ret = new ConditionalExpr(range(ret, token()), ret, left, right);
@@ -3365,13 +3384,15 @@ Expression EqualityExpression():
  */
 PatternExpr PatternExpression():
 {
+    ModifierHolder modifier;
     ReferenceType type;
     SimpleName name;
 }
 {
-    type = AnnotatedReferenceType()
+    modifier = Modifiers()
+    type = ReferenceType(modifier.annotations)
     name = SimpleName()
-    { return new PatternExpr(range(type, token()), type, name); }
+    { return new PatternExpr(range(type, token()), modifier.modifiers, type, name); }
 }
 
 
@@ -3594,14 +3615,16 @@ Expression UnaryExpression():
         )
         ret = UnaryExpression()
         { ret = new UnaryExpr(range(begin, token()), ret, op); }
-    |
-	  ret = HalfBinaryExpression()
-	|
-      LOOKAHEAD(MapCreationLiteralExpression())
+     |
+        ret = UnaryExpressionNotPlusMinus()
+     |
+	    ret = HalfBinaryExpression()
+	 |
+        LOOKAHEAD(MapCreationLiteralExpression())
         ret = MapCreationLiteralExpression()
-    |
-      LOOKAHEAD(ListCreationLiteralExpression())
-        ret = ListCreationLiteralExpression()
+     |
+       LOOKAHEAD(ListCreationLiteralExpression())
+       ret = ListCreationLiteralExpression()
     )
     { return ret; }
 }
@@ -3696,9 +3719,6 @@ Expression DrlxExpressionSwitch():
 
   { return ret; }
 }
-
-
-// drlcontraintparser end
 
 /**
  * https://docs.oracle.com/javase/specs/jls/se15/html/jls-15.html#jls-15.15
@@ -4018,7 +4038,8 @@ Expression PrimarySuffixWithoutSuper(Expression scope):
     (
         "."
         (
-		"this" { ret = new ThisExpr(range(scope, token()), scopeToName(scope)); }
+            "this"
+            { ret = new ThisExpr(range(scope, token()), scopeToName(scope)); }
          |
             ret = AllocationExpression(scope)
          |
@@ -4028,7 +4049,7 @@ Expression PrimarySuffixWithoutSuper(Expression scope):
             [ args = Arguments() {hasArgs=true;} ]
             {
                 if (hasArgs) {
-	  			ret = parseMethodExprOrHalfBinary(range(scope, token()), scope, typeArgs.list, name, args, false);
+	  			    ret = parseMethodExprOrHalfBinary(range(scope, token()), scope, typeArgs.list, name, args, false);
                 } else {
                     ret =  new FieldAccessExpr(range(scope, token()), scope, typeArgs.list, name);
                 }
@@ -4099,13 +4120,20 @@ Expression Literal():
         <INTEGER_LITERAL> { ret = new IntegerLiteralExpr(tokenRange(), token.image); }
      |
         <LONG_LITERAL> { ret = new LongLiteralExpr(tokenRange(), token.image); }
-	|
+     |
 	  <BIG_DECIMAL_LITERAL> {
-	  		ret = new BigDecimalLiteralExpr(tokenRange(), token.image);
+            ClassOrInterfaceType type = new JavaParser().parseClassOrInterfaceType("java.math.BigDecimal").getResult().get();
+            NodeList<Expression> arg = emptyNodeList();
+            arg.add(new StringLiteralExpr(getStringFromLiteral(token.image)));
+            ret = new ObjectCreationExpr(tokenRange(), null, (ClassOrInterfaceType) type, null, arg, null);
+	  		//ret = new BigDecimalLiteralExpr(tokenRange(), token.image);
 	  }
 	|
 	  <BIG_INTEGER_LITERAL> {
-	  		ret = new BigIntegerLiteralExpr(tokenRange(), token.image);
+            ClassOrInterfaceType type = new JavaParser().parseClassOrInterfaceType("java.math.BigInteger").getResult().get();
+            NodeList<Expression> arg = emptyNodeList();
+            arg.add(new StringLiteralExpr(getStringFromLiteral(token.image)));
+            ret = new ObjectCreationExpr(tokenRange(), null, (ClassOrInterfaceType) type, null, arg, null);
 	  }
 	|
         <FLOATING_POINT_LITERAL> { ret = new DoubleLiteralExpr(tokenRange(), token.image); }
@@ -4387,7 +4415,7 @@ Statement Statement():
             | ret = SynchronizedStatement()
             | ret = TryStatement()
             | ret = ModifyStatement()
-            | ret = WithStatement()
+            // | ret = WithStatement()
         )
         { return ret; }
     } catch (ParseException e) {
@@ -4458,7 +4486,6 @@ BlockStmt Block():
 {
     NodeList<Statement> stmts = emptyNodeList();
     JavaToken begin;
-    this.enterBlock();
 }
 {
     "{" { begin=token(); }
@@ -4471,8 +4498,6 @@ BlockStmt Block():
         BlockStmt block = new BlockStmt(range(begin, token()), new NodeList<Statement>());
         block.setParsed(UNPARSABLE);
         return block;
-    } finally {
-        this.leaveBlock();
     }
 }
 
@@ -4527,6 +4552,11 @@ Statement BlockStatement():
             LOOKAHEAD( Modifiers() "record" SimpleName() [ TypeParameters() ] Parameters() )
             modifier = Modifiers()
             recordDeclaration = RecordDeclaration(modifier) { ret = new LocalRecordDeclarationStmt(range(recordDeclaration, token()), recordDeclaration); }
+         |
+            // try yield statement separate from more general Statement() because yield is not a keyword but
+            // just a restricted identifier and a yield statement can be confused with VariableDeclarationExpression sometimes
+            LOOKAHEAD( YieldStatement() )
+            ret = YieldStatement()
          |
             LOOKAHEAD( VariableDeclarationExpression() )
             expr = VariableDeclarationExpression()
@@ -4630,7 +4660,7 @@ ExpressionStmt StatementExpression():
             value = Expression() { expr = new AssignExpr(range(expr, token()), expr, value, op); }
         ]
     )
-    (EOS())// TODO: should support also windows EOL
+    ";"
     { return new ExpressionStmt(range(expr, token()), expr); }
 }
 
@@ -6593,9 +6623,3 @@ TemporalLiteralChunkExpr TemporalLiteralChunk():
   { return ret; }
 }
 
-void EOS():
-{
-}
-{
-   <SEMICOLON> | <EOF> | LOOKAHEAD( { this.shouldTerminateStatement() } ) {}
-}

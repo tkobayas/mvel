@@ -16,7 +16,7 @@
  *
  */
 
-package org.mvel3.parser.utils;
+package org.mvel3.parser.util;
 
 import com.github.javaparser.TokenRange;
 import com.github.javaparser.ast.Node;
@@ -36,6 +36,16 @@ import org.mvel3.parser.ast.expr.NullSafeFieldAccessExpr;
 import org.mvel3.parser.ast.expr.NullSafeMethodCallExpr;
 
 public class AstUtils {
+
+    public static String getStringFromLiteral(String value) {
+        value = value.trim();
+        String result = value.replaceAll("_", "");
+        char lastChar = result.charAt(result.length() - 1);
+        if (!Character.isDigit(lastChar)) {
+            result = result.substring(0, result.length() - 1);
+        }
+        return result;
+    }
 
     public static boolean hasChildOfType( Node node, Class<?> nodeType ) {
         if (nodeType.isInstance( node )) {

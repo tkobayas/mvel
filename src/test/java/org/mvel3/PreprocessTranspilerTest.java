@@ -18,6 +18,7 @@ package org.mvel3;
 
 import org.mvel3.transpiler.TranspiledBlockResult;
 import org.mvel3.transpiler.PreprocessTranspiler;
+import org.mvel3.transpiler.TranspiledResult;
 import org.mvel3.transpiler.context.MvelTranspilerContext;
 import org.junit.Test;
 
@@ -113,9 +114,9 @@ public class PreprocessTranspilerTest implements TranspilerTest {
     public void test(Consumer<MvelTranspilerContext> updateContextFunc,
                       String inputExpression,
                       String expectedResult,
-                      Consumer<TranspiledBlockResult> resultAssert) {
+                      Consumer<TranspiledResult> resultAssert) {
         TranspiledBlockResult compiled = new PreprocessTranspiler().compile(inputExpression, updateContextFunc);
-        assertThat(compiled.resultAsString()).isEqualToIgnoringWhitespace(expectedResult);
+        assertThat(compiled.asString()).isEqualToIgnoringWhitespace(expectedResult);
         resultAssert.accept(compiled);
     }
 }

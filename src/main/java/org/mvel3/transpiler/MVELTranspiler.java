@@ -16,67 +16,74 @@
 
 package org.mvel3.transpiler;
 
-import com.github.javaparser.ast.CompilationUnit;
-import com.github.javaparser.ast.Node;
+import com.github.javaparser.ParseResult;
+import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.ast.stmt.BlockStmt;
 import com.github.javaparser.ast.stmt.Statement;
+import com.github.javaparser.resolution.TypeSolver;
+import com.github.javaparser.symbolsolver.JavaSymbolSolver;
+import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver;
 import org.mvel3.parser.MvelParser;
-import org.mvel3.parser.ast.expr.ModifyStatement;
-import org.mvel3.transpiler.ast.TypedExpression;
 import org.mvel3.transpiler.context.MvelTranspilerContext;
-import org.mvel3.util.ClassTypeResolver;
-import org.mvel3.util.TypeResolver;
 
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
 
-import static java.util.stream.Collectors.toList;
+import static com.github.javaparser.ParserConfiguration.LanguageLevel.JAVA_15;
 
 public class MVELTranspiler {
 
     private final PreprocessPhase preprocessPhase = new PreprocessPhase();
-    //private final StatementVisitor statementVisitor;
+
     private MvelTranspilerContext mvelTranspilerContext;
 
     public MVELTranspiler(MvelTranspilerContext mvelTranspilerContext) {
-        //this.statementVisitor = new StatementVisitor(mvelTranspilerContext);
         this.mvelTranspilerContext = mvelTranspilerContext;
     }
 
-    public static TranspiledResult transpile(Object expression, Map<String, Class> types, ClassLoader classLoader) {
+    public static TranspiledResult transpile(Object expression, Map<String, Class> types) {
+        return transpile(expression, types);
+    }
+
+    public static TranspiledResult transpile(Object expression, Map<String, Class> types, Consumer<MvelTranspilerContext> contextUpdates) {
         String expressionString = expression.toString();
 
-        Set<String> imports = new HashSet<>();
-        imports.add("java.util.List");
-        imports.add("java.util.ArrayList");
-        imports.add("java.util.HashMap");
-        imports.add("java.util.Map");
-        imports.add("java.math.BigDecimal");
-        imports.add("org.mvel3.Address");
+        TypeSolver typeSolver = new ReflectionTypeSolver(false);
+        JavaSymbolSolver solver = new JavaSymbolSolver(typeSolver);
 
-        TypeResolver classTypeResolver = new ClassTypeResolver(imports, classLoader);
-        MvelTranspilerContext context = new MvelTranspilerContext(classTypeResolver);
+        ParserConfiguration conf = new ParserConfiguration();
+        conf.setLanguageLevel(JAVA_15);
+        conf.setSymbolResolver(solver);
+
+        MvelParser parser = new MvelParser(conf);
+
+        MvelTranspilerContext context = new MvelTranspilerContext(parser, typeSolver);
+
+        //  Some code provides var types via the contextUpdater and others via a list
+        if (contextUpdates != null) {
+            contextUpdates.accept(context);
+        }
 
         for (Map.Entry<String, Class> o : types.entrySet()) {
             context.addDeclaration(o.getKey(), o.getValue());
         }
 
         MVELTranspiler mvelTranspiler = new MVELTranspiler(context);
-        ConstraintTranspiler constraintTranspiler = new ConstraintTranspiler(context);
 
-        TranspiledResult transpiledResult;
-        if (isAStatement(expressionString)) {
+        TranspiledResult transpiledResult = null;
+        if (true) { //isAStatement(expressionString)) {
             String expressionStringWithBraces = String.format("{%s}", expressionString);
             transpiledResult =  mvelTranspiler.transpileStatement(expressionStringWithBraces);
         } else {
-            transpiledResult =  constraintTranspiler.compileExpression(expressionString);
+            //transpiledResult =  constraintTranspiler.compileExpression(expressionString);
         }
 
         return transpiledResult;
+
     }
 
     private static boolean isAStatement(String expressionString) {
@@ -91,33 +98,28 @@ public class MVELTranspiler {
         return hasSemiColon;
     }
 
-    public TranspiledBlockResult transpileStatement(String mvelBlock) {
+    public static TranspiledResult transpile(String expression, Set<String> imports, Map<String, Class> types) {
+        return transpile(expression, types, ctx -> {
+            imports.stream().forEach(i -> ctx.addImport(i));
+        });
+    }
 
-        BlockStmt mvelExpression = MvelParser.parseBlock(mvelBlock);
+    public TranspiledBlockResult transpileStatement(String mvelBlock) {
+        ParseResult<BlockStmt> result = mvelTranspilerContext.getParser().parseBlock(mvelBlock);
+        if (!result.isSuccessful()) {
+            throw new RuntimeException(result.getProblems().toString());
+        }
+        BlockStmt mvelExpression = result.getResult().get();
 
         VariableAnalyser analyser = new VariableAnalyser(mvelTranspilerContext.getDeclarations().keySet());
         mvelExpression.accept(analyser, null);
 
+        analyser.getUsed().stream().forEach(v -> mvelTranspilerContext.addInput(v));
+
+
         preprocessPhase.removeEmptyStmt(mvelExpression);
 
-//        mvelExpression.findAll(ModifyStatement.class)
-//                      .stream()
-//                      .flatMap(this::transformStatementWithPreprocessing)
-//                      .collect(toList());
-//
-//        // Entry point of the compiler
-//        TypedExpression compiledRoot = mvelExpression.accept(statementVisitor, null);
-//
-//        Node javaRoot = compiledRoot.toJavaExpression();
-//
-//        if(!(javaRoot instanceof BlockStmt)) {
-//            throw new MVELTranspilerException("With a BlockStmt as a input I was expecting a BlockStmt output");
-//        }
-//
-//        BlockStmt compiledBlockStatement = (BlockStmt) javaRoot;
-
-        //return new TranspiledBlockResult(compiledBlockStatement.getStatements(), analyser.getUsed());
-        return new TranspiledBlockResult(mvelExpression.getStatements(), mvelTranspilerContext.getDeclarations(), analyser.getUsed(), mvelTranspilerContext.getTypeResolver().getImports());
+        return new TranspiledBlockResult(mvelExpression.getStatements(), mvelTranspilerContext);
     }
 
     private Stream<String> transformStatementWithPreprocessing(Statement s) {
@@ -125,5 +127,4 @@ public class MVELTranspiler {
         s.remove();
         return invoke.getUsedBindings().stream();
     }
-
 }

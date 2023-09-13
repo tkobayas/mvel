@@ -121,12 +121,12 @@ public class MvelParserTest {
     @Test
     public void testBinaryWithNewLineBeforeOperator() {
         String andExpr = "(addresses == 2" + newLine() + "&& addresses == 3  )";
-        MvelParser mvelParser1 = new MvelParser(new ParserConfiguration(), true);
+        StaticMvelParser mvelParser1 = new StaticMvelParser(new ParserConfiguration(), true);
         Expression and2 = mvelParser1.parse(GeneratedMvelParser::Expression, new StringProvider(andExpr)).getResult().get();
         assertThat(printNode(and2)).isEqualTo("(addresses == 2 && addresses == 3)");
 
         String orExpr = "(addresses == 2" + newLine() + "|| addresses == 3  )";
-        MvelParser mvelParser2 = new MvelParser(new ParserConfiguration(), false);
+        StaticMvelParser mvelParser2 = new StaticMvelParser(new ParserConfiguration(), false);
         Expression or2 = mvelParser2.parse(GeneratedMvelParser::Expression, new StringProvider(orExpr)).getResult().get();
         assertThat(printNode(or2)).isEqualTo("(addresses == 2 || addresses == 3)");
     }
@@ -779,7 +779,7 @@ public class MvelParserTest {
     public void testModifyStatement() {
         String expr = "{ modify ( $p )  { name = \"Luca\", age = \"35\" }; }";
 
-        BlockStmt expression = MvelParser.parseBlock(expr);
+        BlockStmt expression = StaticMvelParser.parseBlock(expr);
         assertThat(printNode(expression)).isEqualTo("{" + newLine() +
                 "    modify ($p) { name = \"Luca\", age = \"35\" };" + newLine() +
                 "}");
@@ -788,14 +788,14 @@ public class MvelParserTest {
     @Test(expected = ParseProblemException.class)
     public void testModifyFailing() {
         String expr = "{ modify  { name = \"Luca\", age = \"35\" }; }";
-        MvelParser.parseBlock(expr);
+        StaticMvelParser.parseBlock(expr);
     }
 
     @Test
     public void testModifyStatementSemicolon() {
         String expr = "{ modify ( $p )  { name = \"Luca\"; }; }";
 
-        BlockStmt expression = MvelParser.parseBlock(expr);
+        BlockStmt expression = StaticMvelParser.parseBlock(expr);
         assertThat(printNode(expression)).isEqualTo("{" + newLine() +
                 "    modify ($p) { name = \"Luca\" };" + newLine() +
                 "}");
@@ -805,7 +805,7 @@ public class MvelParserTest {
     public void testModifySemiColon() {
         String expr = "{ modify($p) { setAge(1); }; }";
 
-        BlockStmt expression = MvelParser.parseBlock(expr);
+        BlockStmt expression = StaticMvelParser.parseBlock(expr);
         assertThat(printNode(expression)).isEqualTo("{" + newLine() +
                 "    modify ($p) { setAge(1) };" + newLine() +
                 "}");
@@ -815,7 +815,7 @@ public class MvelParserTest {
     public void testModifyMultiple() {
         String expr = "{ modify($p) { setAge(1)," + newLine() + " setAge(2), setAge(3)," + newLine() + "setAge(4); }; }";
 
-        BlockStmt expression = MvelParser.parseBlock(expr);
+        BlockStmt expression = StaticMvelParser.parseBlock(expr);
         assertThat(printNode(expression)).isEqualTo("{" + newLine() +
                 "    modify ($p) { setAge(1), setAge(2), setAge(3), setAge(4) };" + newLine() +
                 "}");
@@ -825,7 +825,7 @@ public class MvelParserTest {
     public void testModifyEmptyBlock() {
         String expr = "{ modify( $s ) { } }";
 
-        BlockStmt expression = MvelParser.parseBlock(expr);
+        BlockStmt expression = StaticMvelParser.parseBlock(expr);
         assertThat(printNode(expression)).isEqualTo("{" + newLine() +
                 "    modify ($s) {  };" + newLine() +
                 "}");
@@ -835,7 +835,7 @@ public class MvelParserTest {
     public void testModifyWithoutSemicolon() {
         String expr = "{modify($p) { setAge($p.getAge()+1) } }";
 
-        BlockStmt expression = MvelParser.parseBlock(expr);
+        BlockStmt expression = StaticMvelParser.parseBlock(expr);
         assertThat(printNode(expression)).isEqualTo("{" + newLine() +
                 "    modify ($p) { setAge($p.getAge() + 1) };" + newLine() +
                 "}");
@@ -846,7 +846,7 @@ public class MvelParserTest {
     public void testModifyWithCast() {
         String expr = "{modify( (BooleanEvent)$toEdit.get(0) ){  }}";
 
-        BlockStmt expression = MvelParser.parseBlock(expr);
+        BlockStmt expression = StaticMvelParser.parseBlock(expr);
         assertThat(printNode(expression)).isEqualTo("{" + newLine() +
                 "    modify ((BooleanEvent) $toEdit.get(0)) {  };" + newLine() +
                 "}");
@@ -857,7 +857,7 @@ public class MvelParserTest {
     public void testWithStatement() {
         String expr = "{ with ( $p )  { name = \"Luca\", age = \"35\" }; }";
 
-        BlockStmt expression = MvelParser.parseBlock(expr);
+        BlockStmt expression = StaticMvelParser.parseBlock(expr);
         assertThat(printNode(expression)).isEqualTo("{" + newLine() +
                 "    with ($p) { name = \"Luca\", age = \"35\" };" + newLine() +
                 "}");
@@ -866,14 +866,14 @@ public class MvelParserTest {
     @Test(expected = ParseProblemException.class)
     public void testWithFailing() {
         String expr = "{ with  { name = \"Luca\", age = \"35\" }; }";
-        MvelParser.parseBlock(expr);
+        StaticMvelParser.parseBlock(expr);
     }
 
     @Test
     public void testWithStatementSemicolon() {
         String expr = "{ with ( $p )  { name = \"Luca\"; }; }";
 
-        BlockStmt expression = MvelParser.parseBlock(expr);
+        BlockStmt expression = StaticMvelParser.parseBlock(expr);
         assertThat(printNode(expression)).isEqualTo("{" + newLine() +
                 "    with ($p) { name = \"Luca\" };" + newLine() +
                 "}");
@@ -883,7 +883,7 @@ public class MvelParserTest {
     public void testWithSemiColon() {
         String expr = "{ with($p) { setAge(1); }; }";
 
-        BlockStmt expression = MvelParser.parseBlock(expr);
+        BlockStmt expression = StaticMvelParser.parseBlock(expr);
         assertThat(printNode(expression)).isEqualTo("{" + newLine() +
                 "    with ($p) { setAge(1) };" + newLine() +
                 "}");
@@ -893,7 +893,7 @@ public class MvelParserTest {
     public void testWithEmptyBlock() {
         String expr = "{ with( $s ) { } }";
 
-        BlockStmt expression = MvelParser.parseBlock(expr);
+        BlockStmt expression = StaticMvelParser.parseBlock(expr);
         assertThat(printNode(expression)).isEqualTo("{" + newLine() +
                 "    with ($s) {  };" + newLine() +
                 "}");
@@ -903,7 +903,7 @@ public class MvelParserTest {
     public void testWithWithoutSemicolon() {
         String expr = "{with($p) { setAge($p.getAge()+1) } }";
 
-        BlockStmt expression = MvelParser.parseBlock(expr);
+        BlockStmt expression = StaticMvelParser.parseBlock(expr);
         assertThat(printNode(expression)).isEqualTo("{" + newLine() +
                 "    with ($p) { setAge($p.getAge() + 1) };" + newLine() +
                 "}");
@@ -914,7 +914,7 @@ public class MvelParserTest {
     public void testWithWithCast() {
         String expr = "{with( (BooleanEvent)$toEdit.get(0) ){  }}";
 
-        BlockStmt expression = MvelParser.parseBlock(expr);
+        BlockStmt expression = StaticMvelParser.parseBlock(expr);
         assertThat(printNode(expression)).isEqualTo("{" + newLine() +
                 "    with ((BooleanEvent) $toEdit.get(0)) {  };" + newLine() +
                 "}");
@@ -924,7 +924,7 @@ public class MvelParserTest {
     public void testWithConstructor() {
         String expr = "{ with(s1 = new Some()) { }; }";
 
-        BlockStmt expression = MvelParser.parseBlock(expr);
+        BlockStmt expression = StaticMvelParser.parseBlock(expr);
         assertThat(printNode(expression)).isEqualTo("{" + newLine() +
                 "    with (s1 = new Some()) {  };" + newLine() +
                 "}");
@@ -937,7 +937,7 @@ public class MvelParserTest {
                         "b()" + newLine() +
                         "}";
 
-        BlockStmt expression = MvelParser.parseBlock(expr);
+        BlockStmt expression = StaticMvelParser.parseBlock(expr);
         assertThat(printNode(expression)).isEqualTo("{" + newLine() +
                 "    a();" + newLine() +
                 "    b();" + newLine() +
@@ -951,7 +951,7 @@ public class MvelParserTest {
                 "delete($pet)" + newLine() +
                 "}";
 
-        BlockStmt expression = MvelParser.parseBlock(expr);
+        BlockStmt expression = StaticMvelParser.parseBlock(expr);
         assertThat(printNode(expression)).isEqualTo("{" + newLine() +
                 "    delete($person);" + newLine() +
                 "    delete($pet);" + newLine() +
@@ -965,7 +965,7 @@ public class MvelParserTest {
                 "delete($pet) // comment " + newLine() +
                 "}";
 
-        BlockStmt expression = MvelParser.parseBlock(expr);
+        BlockStmt expression = StaticMvelParser.parseBlock(expr);
         assertThat(printNode(expression)).isEqualTo("{" + newLine() +
                 "    delete($person);" + newLine() +
                 "    delete($pet);" + newLine() +
@@ -980,7 +980,7 @@ public class MvelParserTest {
                 "delete($pet) // comment" + oppositeLineEnding +
                 "}";
 
-        BlockStmt expression = MvelParser.parseBlock(expr);
+        BlockStmt expression = StaticMvelParser.parseBlock(expr);
         assertThat(printNode(expression)).isEqualTo("{" + newLine() +
                 "    delete($person);" + newLine() +
                 "    delete($pet);" + newLine() +
@@ -994,7 +994,7 @@ public class MvelParserTest {
                 "delete($pet); // comment " + newLine() +
                 "}";
 
-        BlockStmt expression = MvelParser.parseBlock(expr);
+        BlockStmt expression = StaticMvelParser.parseBlock(expr);
         assertThat(printNode(expression)).isEqualTo("{" + newLine() +
                 "    delete($person);" + newLine() +
                 "    delete($pet);" + newLine() +
@@ -1006,7 +1006,7 @@ public class MvelParserTest {
     public void singleLineBlock() {
         String expr = "{ delete($person); } // comment ";
 
-        BlockStmt expression = MvelParser.parseBlock(expr);
+        BlockStmt expression = StaticMvelParser.parseBlock(expr);
         assertThat(printNode(expression)).isEqualTo("{" + newLine() +
                 "    delete($person);" + newLine() +
                 "}");
@@ -1016,7 +1016,7 @@ public class MvelParserTest {
     public void singleLineBlockWithoutsemicolon() {
         String expr = "{ delete($person) } // comment";
 
-        BlockStmt expression = MvelParser.parseBlock(expr);
+        BlockStmt expression = StaticMvelParser.parseBlock(expr);
         assertThat(printNode(expression)).isEqualTo("{" + newLine() +
                 "    delete($person);" + newLine() +
                 "}");
@@ -1030,7 +1030,7 @@ public class MvelParserTest {
                 "setAge(47)" + newLine() +
                 "}";
 
-        BlockStmt expression = MvelParser.parseBlock(expr);
+        BlockStmt expression = StaticMvelParser.parseBlock(expr);
         assertThat(printNode(expression)).isEqualTo("{" + newLine() +
                 "    setAge(47);" + newLine() +
                 "}");
@@ -1043,7 +1043,7 @@ public class MvelParserTest {
                 ")" + newLine() +
                 "}";
 
-        BlockStmt expression = MvelParser.parseBlock(expr);
+        BlockStmt expression = StaticMvelParser.parseBlock(expr);
         assertThat(printNode(expression)).isEqualTo("{" + newLine() +
                 "    func(x);" + newLine() +
                 "}");
@@ -1051,13 +1051,13 @@ public class MvelParserTest {
 
     @Test
     public void newLineInFunctionCall2() {
-        Expression expression = MvelParser.parseExpression("func(x," + newLine() + " 2)");
+        Expression expression = StaticMvelParser.parseExpression("func(x," + newLine() + " 2)");
         assertThat(printNode(expression)).isEqualTo("func(x, 2)");
     }
 
     @Test
     public void newLineInFunctionCall3() {
-        Expression expression = MvelParser.parseExpression("func(x" + newLine() + ", 2)");
+        Expression expression = StaticMvelParser.parseExpression("func(x" + newLine() + ", 2)");
         assertThat(printNode(expression)).isEqualTo("func(x, 2)");
     }
 
@@ -1075,7 +1075,7 @@ public class MvelParserTest {
                 "  /* modify ; something */" +
                 "}";
 
-        BlockStmt expression = MvelParser.parseBlock(expr);
+        BlockStmt expression = StaticMvelParser.parseBlock(expr);
         assertThat(printNode(expression)).isEqualTo("{" + newLine() +
                 "    globalA.add(\"A\");" + newLine() +
                 "    modify ($p) { setAge(47) };" + newLine() +
@@ -1087,7 +1087,7 @@ public class MvelParserTest {
     @Test
     public void testModifyLambda() {
         String expr = "{  modify($p) {  setCanDrinkLambda(() -> true); } }";
-        BlockStmt expression = MvelParser.parseBlock(expr);
+        BlockStmt expression = StaticMvelParser.parseBlock(expr);
         assertThat(printNode(expression)).isEqualTo("{" + newLine() +
                 "    modify ($p) { setCanDrinkLambda(() -> true) };" + newLine() +
                 "}");
@@ -1122,9 +1122,9 @@ public class MvelParserTest {
     public void testSpecialNewlineHandling() {
         String expr = "{ a() \nprint(1) }";
 
-        assertThat(MvelParser.parseBlock(expr).getStatements().size()).as("There should be 2 statements").isEqualTo(2);
+        assertThat(StaticMvelParser.parseBlock(expr).getStatements().size()).as("There should be 2 statements").isEqualTo(2);
 
-        MvelParser mvelParser = new MvelParser(new ParserConfiguration(), false);
+        StaticMvelParser mvelParser = new StaticMvelParser(new ParserConfiguration(), false);
         ParseResult<BlockStmt> r = mvelParser.parse(GeneratedMvelParser::BlockParseStart, new StringProvider(expr));
         assertThat(r.isSuccessful()).as("Parsing should break at newline").isFalse();
     }
@@ -1136,7 +1136,7 @@ public class MvelParserTest {
                 "  p2.age = 30\n" + // a line break at the end of the statement without a semicolon
                 "insert(p2);\n }";
 
-        MvelParser mvelParser = new MvelParser(new ParserConfiguration(), true);
+        StaticMvelParser mvelParser = new StaticMvelParser(new ParserConfiguration(), true);
         ParseResult<BlockStmt> r = mvelParser.parse(GeneratedMvelParser::BlockParseStart, new StringProvider(expr));
         BlockStmt blockStmt = r.getResult().get();
         assertThat(blockStmt.getStatements().size()).as("Should parse 3 statements").isEqualTo(3);

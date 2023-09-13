@@ -1,14 +1,13 @@
 /*
  * Copyright (C) 2007-2010 Júlio Vilmar Gesser.
- * Copyright (C) 2011, 2013-2016 The JavaParser Team.
- * Copyright 2019 Red Hat, Inc. and/or its affiliates.
+ * Copyright (C) 2011, 2013-2023 The JavaParser Team.
  *
  * This file is part of JavaParser.
  *
  * JavaParser can be used either under the terms of
  * a) the GNU Lesser General Public License as published by
- *  the Free Software Foundation, either version 3 of the License, or
- *  (at your option) any later version.
+ *     the Free Software Foundation, either version 3 of the License, or
+ *     (at your option) any later version.
  * b) the terms of the Apache License
  *
  * You should have received a copy of both licenses in LICENCE.LGPL and
@@ -18,22 +17,25 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
- *
- * Modified by Red Hat, Inc.
  */
-
 package org.mvel3.parser;
 
-import com.github.javaparser.ParseException;
-import com.github.javaparser.Provider;
 import com.github.javaparser.ast.CompilationUnit;
-import com.github.javaparser.ast.expr.Expression;
-import com.github.javaparser.ast.expr.Name;
-import com.github.javaparser.ast.expr.SimpleName;
+import com.github.javaparser.ast.ImportDeclaration;
+import com.github.javaparser.ast.PackageDeclaration;
+import com.github.javaparser.ast.body.BodyDeclaration;
+import com.github.javaparser.ast.body.MethodDeclaration;
+import com.github.javaparser.ast.body.Parameter;
+import com.github.javaparser.ast.body.TypeDeclaration;
+import com.github.javaparser.ast.expr.*;
+import com.github.javaparser.ast.modules.ModuleDeclaration;
+import com.github.javaparser.ast.modules.ModuleDirective;
 import com.github.javaparser.ast.stmt.BlockStmt;
 import com.github.javaparser.ast.stmt.ExplicitConstructorInvocationStmt;
+import com.github.javaparser.ast.stmt.Statement;
 import com.github.javaparser.ast.type.ClassOrInterfaceType;
 import com.github.javaparser.ast.type.Type;
+import com.github.javaparser.ast.type.TypeParameter;
 
 /**
  * The start production for JavaParser.
@@ -46,15 +48,48 @@ import com.github.javaparser.ast.type.Type;
  */
 @FunctionalInterface
 public interface ParseStart<R> {
-    ParseStart<BlockStmt> BLOCK = GeneratedMvelParser::BlockParseStart;
-    ParseStart<Expression> EXPRESSION = GeneratedMvelParser::ExpressionParseStart;
-    ParseStart<ClassOrInterfaceType> CLASS_OR_INTERFACE_TYPE = GeneratedMvelParser::ClassOrInterfaceTypeParseStart;
-    ParseStart<Type> TYPE = GeneratedMvelParser::ResultTypeParseStart;
-    ParseStart<ExplicitConstructorInvocationStmt> EXPLICIT_CONSTRUCTOR_INVOCATION_STMT = GeneratedMvelParser::ExplicitConstructorInvocationParseStart;
-    ParseStart<Name> NAME = GeneratedMvelParser::NameParseStart;
-    ParseStart<SimpleName> SIMPLE_NAME = GeneratedMvelParser::SimpleNameParseStart;
-    ParseStart<CompilationUnit> COMPILATION_UNIT = GeneratedMvelParser::CompilationUnit;
-    ParseStart<CompilationUnit> DRLX_COMPILATION_UNIT = GeneratedMvelParser::DrlxCompilationUnit;
 
-    R parse(GeneratedMvelParser parser) throws ParseException, org.mvel3.parser.ParseException;
+    ParseStart<CompilationUnit> COMPILATION_UNIT = GeneratedMvelParser::CompilationUnit;
+
+    ParseStart<BlockStmt> BLOCK = GeneratedMvelParser::BlockParseStart;
+
+    ParseStart<Statement> STATEMENT = GeneratedMvelParser::BlockStatementParseStart;
+
+    ParseStart<ImportDeclaration> IMPORT_DECLARATION = GeneratedMvelParser::ImportDeclarationParseStart;
+
+    ParseStart<Expression> EXPRESSION = GeneratedMvelParser::ExpressionParseStart;
+
+    ParseStart<AnnotationExpr> ANNOTATION = GeneratedMvelParser::AnnotationParseStart;
+
+    ParseStart<BodyDeclaration<?>> ANNOTATION_BODY = GeneratedMvelParser::AnnotationBodyDeclarationParseStart;
+
+    ParseStart<BodyDeclaration<?>> CLASS_BODY = GeneratedMvelParser::ClassOrInterfaceBodyDeclarationParseStart;
+
+    ParseStart<ClassOrInterfaceType> CLASS_OR_INTERFACE_TYPE = GeneratedMvelParser::ClassOrInterfaceTypeParseStart;
+
+    ParseStart<Type> TYPE = GeneratedMvelParser::ResultTypeParseStart;
+
+    ParseStart<TypeParameter> TYPE_PARAMETER = GeneratedMvelParser::TypeParameterParseStart;
+
+    ParseStart<VariableDeclarationExpr> VARIABLE_DECLARATION_EXPR = GeneratedMvelParser::VariableDeclarationExpressionParseStart;
+
+    ParseStart<ExplicitConstructorInvocationStmt> EXPLICIT_CONSTRUCTOR_INVOCATION_STMT = GeneratedMvelParser::ExplicitConstructorInvocationParseStart;
+
+    ParseStart<Name> NAME = GeneratedMvelParser::NameParseStart;
+
+    ParseStart<SimpleName> SIMPLE_NAME = GeneratedMvelParser::SimpleNameParseStart;
+
+    ParseStart<Parameter> PARAMETER = GeneratedMvelParser::ParameterParseStart;
+
+    ParseStart<PackageDeclaration> PACKAGE_DECLARATION = GeneratedMvelParser::PackageDeclarationParseStart;
+
+    ParseStart<TypeDeclaration<?>> TYPE_DECLARATION = GeneratedMvelParser::TypeDeclarationParseStart;
+
+    ParseStart<ModuleDeclaration> MODULE_DECLARATION = GeneratedMvelParser::ModuleDeclarationParseStart;
+
+    ParseStart<ModuleDirective> MODULE_DIRECTIVE = GeneratedMvelParser::ModuleDirectiveParseStart;
+
+    ParseStart<MethodDeclaration> METHOD_DECLARATION = GeneratedMvelParser::MethodDeclarationParseStart;
+
+    R parse(GeneratedMvelParser parser) throws ParseException;
 }

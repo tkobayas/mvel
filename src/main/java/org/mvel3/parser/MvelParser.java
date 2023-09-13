@@ -1,14 +1,13 @@
 /*
  * Copyright (C) 2007-2010 Júlio Vilmar Gesser.
- * Copyright (C) 2011, 2013-2016 The JavaParser Team.
- * Copyright 2019 Red Hat, Inc. and/or its affiliates.
+ * Copyright (C) 2011, 2013-2023 The JavaParser Team.
  *
  * This file is part of JavaParser.
  *
  * JavaParser can be used either under the terms of
  * a) the GNU Lesser General Public License as published by
- *  the Free Software Foundation, either version 3 of the License, or
- *  (at your option) any later version.
+ *     the Free Software Foundation, either version 3 of the License, or
+ *     (at your option) any later version.
  * b) the terms of the Apache License
  *
  * You should have received a copy of both licenses in LICENCE.LGPL and
@@ -18,59 +17,89 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
- *
- * Modified by Red Hat, Inc.
  */
-
 package org.mvel3.parser;
 
 import com.github.javaparser.ParseProblemException;
 import com.github.javaparser.ParseResult;
 import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.Problem;
-import com.github.javaparser.Providers.PreProcessor;
+import com.github.javaparser.Processor;
+import com.github.javaparser.StaticJavaParser;
+import com.github.javaparser.ast.CompilationUnit;
+import com.github.javaparser.ast.ImportDeclaration;
 import com.github.javaparser.ast.Node;
+import com.github.javaparser.ast.PackageDeclaration;
+import com.github.javaparser.ast.body.BodyDeclaration;
+import com.github.javaparser.ast.body.MethodDeclaration;
+import com.github.javaparser.ast.body.Parameter;
+import com.github.javaparser.ast.body.TypeDeclaration;
+import com.github.javaparser.ast.expr.AnnotationExpr;
 import com.github.javaparser.ast.expr.Expression;
 import com.github.javaparser.ast.expr.Name;
 import com.github.javaparser.ast.expr.SimpleName;
+import com.github.javaparser.ast.expr.VariableDeclarationExpr;
+import com.github.javaparser.ast.modules.ModuleDeclaration;
+import com.github.javaparser.ast.modules.ModuleDirective;
 import com.github.javaparser.ast.stmt.BlockStmt;
 import com.github.javaparser.ast.stmt.ExplicitConstructorInvocationStmt;
+import com.github.javaparser.ast.stmt.Statement;
 import com.github.javaparser.ast.type.ClassOrInterfaceType;
 import com.github.javaparser.ast.type.Type;
+import com.github.javaparser.ast.type.TypeParameter;
 
+import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
 import java.nio.charset.Charset;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.function.Supplier;
 
-import static com.github.javaparser.Problem.PROBLEM_BY_BEGIN_POSITION;
-import static com.github.javaparser.utils.Utils.assertNotNull;
-import static org.mvel3.parser.ParseStart.BLOCK;
-import static org.mvel3.parser.ParseStart.CLASS_OR_INTERFACE_TYPE;
-import static org.mvel3.parser.ParseStart.EXPLICIT_CONSTRUCTOR_INVOCATION_STMT;
-import static org.mvel3.parser.ParseStart.EXPRESSION;
-import static org.mvel3.parser.ParseStart.NAME;
-import static org.mvel3.parser.ParseStart.SIMPLE_NAME;
-import static org.mvel3.parser.ParseStart.TYPE;
-import static org.mvel3.parser.Providers.UTF8;
 import static org.mvel3.parser.Providers.provider;
 import static org.mvel3.parser.Providers.resourceProvider;
+
+import static org.mvel3.parser.ParseStart.ANNOTATION;
+import static org.mvel3.parser.ParseStart.ANNOTATION_BODY;
+import static org.mvel3.parser.ParseStart.BLOCK;
+import static org.mvel3.parser.ParseStart.CLASS_BODY;
+import static org.mvel3.parser.ParseStart.CLASS_OR_INTERFACE_TYPE;
+import static org.mvel3.parser.ParseStart.COMPILATION_UNIT;
+import static org.mvel3.parser.ParseStart.EXPLICIT_CONSTRUCTOR_INVOCATION_STMT;
+import static org.mvel3.parser.ParseStart.EXPRESSION;
+import static org.mvel3.parser.ParseStart.IMPORT_DECLARATION;
+import static org.mvel3.parser.ParseStart.METHOD_DECLARATION;
+import static org.mvel3.parser.ParseStart.MODULE_DECLARATION;
+import static org.mvel3.parser.ParseStart.MODULE_DIRECTIVE;
+import static org.mvel3.parser.ParseStart.NAME;
+import static org.mvel3.parser.ParseStart.PACKAGE_DECLARATION;
+import static org.mvel3.parser.ParseStart.PARAMETER;
+import static org.mvel3.parser.ParseStart.SIMPLE_NAME;
+import static org.mvel3.parser.ParseStart.STATEMENT;
+import static org.mvel3.parser.ParseStart.TYPE;
+import static org.mvel3.parser.ParseStart.TYPE_DECLARATION;
+import static org.mvel3.parser.ParseStart.TYPE_PARAMETER;
+import static org.mvel3.parser.ParseStart.VARIABLE_DECLARATION_EXPR;
+import static com.github.javaparser.Problem.PROBLEM_BY_BEGIN_POSITION;
+import static com.github.javaparser.utils.Utils.assertNotNull;
+import static java.util.stream.Collectors.toList;
 
 /**
  * Parse Java source code and creates Abstract Syntax Trees.
  *
  * @author Júlio Vilmar Gesser
+ * @see StaticJavaParser
  */
 public final class MvelParser {
+
     private final ParserConfiguration configuration;
-    private final boolean optionalSemicolon;
 
     private GeneratedMvelParser astParser = null;
-    private static ParserConfiguration staticConfiguration = new ParserConfiguration();
 
     /**
-     * Instantiate the parser with default configuration. Note that parsing can also be done with the static methods on
-     * this class.
+     * Instantiate the parser with default configuration. Note that parsing can also be done with the static methods {@link StaticJavaParser}.
      * Creating an instance will reduce setup time between parsing files.
      */
     public MvelParser() {
@@ -78,39 +107,15 @@ public final class MvelParser {
     }
 
     /**
-     * Instantiate the parser. Note that parsing can also be done with the static methods on this class.
+     * Instantiate the parser. Note that parsing can also be done with the static methods {@link StaticJavaParser}.
      * Creating an instance will reduce setup time between parsing files.
      */
     public MvelParser(ParserConfiguration configuration) {
-        this(configuration, true /* default to optional semicolon */);
-    }
-
-    public MvelParser(ParserConfiguration configuration, boolean optionalSemicolon) {
         this.configuration = configuration;
-        //configuration.getPostProcessors().clear();
-        this.optionalSemicolon = optionalSemicolon;
     }
 
     /**
-     * Get the configuration for the static parse... methods.
-     * This is a STATIC field, so modifying it will directly change how all static parse... methods work!
-     */
-    public static ParserConfiguration getStaticConfiguration() {
-        return staticConfiguration;
-    }
-
-    /**
-     * Set the configuration for the static parse... methods.
-     * This is a STATIC field, so modifying it will directly change how all static parse... methods work!
-     */
-    public static void setStaticConfiguration(ParserConfiguration staticConfiguration) {
-        MvelParser.staticConfiguration = staticConfiguration;
-    }
-
-    /**
-     * Get the non-static configuration for this parser.
-     *
-     * @return The non-static configuration for this parser.
+     * @return The configuration for this parser.
      */
     public ParserConfiguration getParserConfiguration() {
         return this.configuration;
@@ -124,7 +129,12 @@ public final class MvelParser {
         }
         astParser.setTabSize(configuration.getTabSize());
         astParser.setStoreTokens(configuration.isStoreTokens());
-        astParser.setOptionalSemicolon(optionalSemicolon);
+        ParserConfiguration.LanguageLevel languageLevel = configuration.getLanguageLevel();
+        if (languageLevel != null) {
+            if (languageLevel.isYieldSupported()) {
+                astParser.setYieldSupported();
+            }
+        }
         return astParser;
     }
 
@@ -139,10 +149,11 @@ public final class MvelParser {
      * @return the parse result, a collection of encountered problems, and some extra data.
      */
     public <N extends Node> ParseResult<N> parse(ParseStart<N> start, final Provider provider) {
-    	assertNotNull(start);
-    	assertNotNull(provider);
+        assertNotNull(start);
+        assertNotNull(provider);
+        List<Processor> processors = configuration.getProcessors().stream().map(Supplier::get).collect(toList());
 
-        com.github.javaparser.Provider tempProvider = new com.github.javaparser.Provider() {
+        com.github.javaparser.Provider adapter = new com.github.javaparser.Provider() {
             @Override
             public int read(char[] aDest, int nOfs, int nLen) throws IOException {
                 return provider.read(aDest, nOfs, nLen);
@@ -154,34 +165,17 @@ public final class MvelParser {
             }
         };
 
-        for (PreProcessor preProcessor : configuration.getPreProcessors()) {
-            tempProvider = preProcessor.process(tempProvider);
+        for (Processor processor : processors) {
+            adapter = processor.preProcess(adapter);
         }
-
-        final com.github.javaparser.Provider  finalProvider = tempProvider;
-        Provider postProvider = new Provider() {
-            @Override
-            public int read(char[] aDest, int nOfs, int nLen) throws IOException {
-                return finalProvider.read(aDest, nOfs, nLen);
-            }
-
-            @Override
-            public void close() throws IOException {
-                finalProvider.close();
-            }
-        };
-
-
-        final GeneratedMvelParser parser = getParserForProvider(postProvider);
+        final GeneratedMvelParser parser = getParserForProvider(provider);
         try {
             N resultNode = start.parse(parser);
             ParseResult<N> result = new ParseResult<>(resultNode, parser.problems, parser.getCommentsCollection());
-
-            configuration.getPostProcessors().forEach(postProcessor ->
-                    postProcessor.process(result, configuration));
-
+            for (Processor processor : processors) {
+                processor.postProcess(result, configuration);
+            }
             result.getProblems().sort(PROBLEM_BY_BEGIN_POSITION);
-
             return result;
         } catch (Exception e) {
             final String message = e.getMessage() == null ? "Unknown error" : e.getMessage();
@@ -198,106 +192,165 @@ public final class MvelParser {
 
     /**
      * Parses the Java code contained in the {@link InputStream} and returns a
-     * {@link Expression} that represents it.
+     * {@link CompilationUnit} that represents it.
      *
      * @param in {@link InputStream} containing Java source code. It will be closed after parsing.
      * @param encoding encoding of the source code
-     * @return Expression representing the Java source code
+     * @return CompilationUnit representing the Java source code
      * @throws ParseProblemException if the source code has parser errors
      */
-    public static Expression parse(final InputStream in, Charset encoding) {
-        return simplifiedParse(EXPRESSION, provider(in, encoding));
+    public ParseResult<CompilationUnit> parse(final InputStream in, Charset encoding) {
+        return parse(COMPILATION_UNIT, provider(in, encoding));
     }
 
     /**
      * Parses the Java code contained in the {@link InputStream} and returns a
-     * {@link Expression} that represents it.<br>
-     * Note: Uses UTF-8 encoding
+     * {@link CompilationUnit} that represents it.<br>
      *
      * @param in {@link InputStream} containing Java source code. It will be closed after parsing.
-     * @return Expression representing the Java source code
+     * @return CompilationUnit representing the Java source code
      * @throws ParseProblemException if the source code has parser errors
      */
-    public static Expression parse(final InputStream in) {
-        return parse(in, UTF8);
+    public ParseResult<CompilationUnit> parse(final InputStream in) {
+        return parse(in, configuration.getCharacterEncoding());
     }
 
     /**
-     * Parses the Java code contained in a resource and returns a
-     * {@link Expression} that represents it.<br>
-     * Note: Uses UTF-8 encoding
+     * Parses the Java code contained in a {@link File} and returns a
+     * {@link CompilationUnit} that represents it.
      *
-     * @param path path to a resource containing Java source code. As resource is accessed through a class loader, a
-     * leading "/" is not allowed in pathToResource
-     * @return Expression representing the Java source code
+     * @param file {@link File} containing Java source code. It will be closed after parsing.
+     * @param encoding encoding of the source code
+     * @return CompilationUnit representing the Java source code
+     * @throws ParseProblemException if the source code has parser errors
+     * @throws FileNotFoundException the file was not found
+     * @deprecated set the encoding in the {@link ParserConfiguration}
+     */
+    @Deprecated
+    public ParseResult<CompilationUnit> parse(final File file, final Charset encoding) throws FileNotFoundException {
+        ParseResult<CompilationUnit> result = parse(COMPILATION_UNIT, provider(file, encoding));
+        result.getResult().ifPresent(cu -> cu.setStorage(file.toPath(), encoding));
+        return result;
+    }
+
+    /**
+     * Parses the Java code contained in a {@link File} and returns a
+     * {@link CompilationUnit} that represents it.<br>
+     *
+     * @param file {@link File} containing Java source code. It will be closed after parsing.
+     * @return CompilationUnit representing the Java source code
+     * @throws ParseProblemException if the source code has parser errors
+     * @throws FileNotFoundException the file was not found
+     */
+    public ParseResult<CompilationUnit> parse(final File file) throws FileNotFoundException {
+        ParseResult<CompilationUnit> result = parse(COMPILATION_UNIT, provider(file, configuration.getCharacterEncoding()));
+        result.getResult().ifPresent(cu -> cu.setStorage(file.toPath(), configuration.getCharacterEncoding()));
+        return result;
+    }
+
+    /**
+     * Parses the Java code contained in a file and returns a
+     * {@link CompilationUnit} that represents it.
+     *
+     * @param path path to a file containing Java source code
+     * @param encoding encoding of the source code
+     * @return CompilationUnit representing the Java source code
+     * @throws IOException the path could not be accessed
+     * @throws ParseProblemException if the source code has parser errors
+     * @deprecated set the encoding in the {@link ParserConfiguration}
+     */
+    @Deprecated
+    public ParseResult<CompilationUnit> parse(final Path path, final Charset encoding) throws IOException {
+        ParseResult<CompilationUnit> result = parse(COMPILATION_UNIT, provider(path, encoding));
+        result.getResult().ifPresent(cu -> cu.setStorage(path, encoding));
+        return result;
+    }
+
+    /**
+     * Parses the Java code contained in a file and returns a
+     * {@link CompilationUnit} that represents it.<br>
+     *
+     * @param path path to a file containing Java source code
+     * @return CompilationUnit representing the Java source code
      * @throws ParseProblemException if the source code has parser errors
      * @throws IOException the path could not be accessed
      */
-    public static Expression parseResource(final String path) throws IOException {
-        return simplifiedParse(EXPRESSION, resourceProvider(path));
+    public ParseResult<CompilationUnit> parse(final Path path) throws IOException {
+        ParseResult<CompilationUnit> result = parse(COMPILATION_UNIT, provider(path, configuration.getCharacterEncoding()));
+        result.getResult().ifPresent(cu -> cu.setStorage(path, configuration.getCharacterEncoding()));
+        return result;
     }
 
     /**
      * Parses the Java code contained in a resource and returns a
-     * {@link Expression} that represents it.<br>
+     * {@link CompilationUnit} that represents it.<br>
+     *
+     * @param path path to a resource containing Java source code. As resource is accessed through a class loader, a
+     * leading "/" is not allowed in pathToResource
+     * @return CompilationUnit representing the Java source code
+     * @throws ParseProblemException if the source code has parser errors
+     * @throws IOException the path could not be accessed
+     */
+    public ParseResult<CompilationUnit> parseResource(final String path) throws IOException {
+        return parse(COMPILATION_UNIT, resourceProvider(path, configuration.getCharacterEncoding()));
+    }
+
+    /**
+     * Parses the Java code contained in a resource and returns a
+     * {@link CompilationUnit} that represents it.<br>
      *
      * @param path path to a resource containing Java source code. As resource is accessed through a class loader, a
      * leading "/" is not allowed in pathToResource
      * @param encoding encoding of the source code
-     * @return Expression representing the Java source code
+     * @return CompilationUnit representing the Java source code
      * @throws ParseProblemException if the source code has parser errors
      * @throws IOException the path could not be accessed
+     * @deprecated set the encoding in the {@link ParserConfiguration}
      */
-    public static Expression parseResource(final String path, Charset encoding) throws IOException {
-        return simplifiedParse(EXPRESSION, resourceProvider(path, encoding));
+    @Deprecated
+    public ParseResult<CompilationUnit> parseResource(final String path, Charset encoding) throws IOException {
+        return parse(COMPILATION_UNIT, resourceProvider(path, encoding));
     }
 
     /**
      * Parses the Java code contained in a resource and returns a
-     * {@link Expression} that represents it.<br>
+     * {@link CompilationUnit} that represents it.<br>
      *
      * @param classLoader the classLoader that is asked to load the resource
      * @param path path to a resource containing Java source code. As resource is accessed through a class loader, a
      * leading "/" is not allowed in pathToResource
-     * @return Expression representing the Java source code
+     * @return CompilationUnit representing the Java source code
      * @throws ParseProblemException if the source code has parser errors
      * @throws IOException the path could not be accessed
+     * @deprecated set the encoding in the {@link ParserConfiguration}
      */
-    public static Expression parseResource(final ClassLoader classLoader, final String path, Charset encoding) throws IOException {
-        return simplifiedParse(EXPRESSION, resourceProvider(classLoader, path, encoding));
+    @Deprecated
+    public ParseResult<CompilationUnit> parseResource(final ClassLoader classLoader, final String path, Charset encoding) throws IOException {
+        return parse(COMPILATION_UNIT, resourceProvider(classLoader, path, encoding));
     }
 
     /**
      * Parses Java code from a Reader and returns a
-     * {@link Expression} that represents it.<br>
+     * {@link CompilationUnit} that represents it.<br>
      *
      * @param reader the reader containing Java source code. It will be closed after parsing.
-     * @return Expression representing the Java source code
+     * @return CompilationUnit representing the Java source code
      * @throws ParseProblemException if the source code has parser errors
      */
-    public static Expression parse(final Reader reader) {
-        return simplifiedParse(EXPRESSION, provider(reader));
+    public ParseResult<CompilationUnit> parse(final Reader reader) {
+        return parse(COMPILATION_UNIT, provider(reader));
     }
 
     /**
      * Parses the Java code contained in code and returns a
-     * {@link Expression} that represents it.
+     * {@link CompilationUnit} that represents it.
      *
      * @param code Java source code
-     * @return Expression representing the Java source code
+     * @return CompilationUnit representing the Java source code
      * @throws ParseProblemException if the source code has parser errors
      */
-    public static Expression parse(String code) {
-        return simplifiedParse(EXPRESSION, provider(code));
-    }
-
-    private static <T extends Node> T simplifiedParse(ParseStart<T> context, Provider provider) {
-        ParseResult<T> result = new MvelParser(staticConfiguration).parse(context, provider);
-        if (result.isSuccessful()) {
-            return result.getResult()
-                    .orElseThrow(() -> new IllegalStateException("ParseResult doesn't contain any result although marked as successful!"));
-        }
-        throw new ParseProblemException(result.getProblems());
+    public ParseResult<CompilationUnit> parse(String code) {
+        return parse(COMPILATION_UNIT, provider(code));
     }
 
     /**
@@ -308,8 +361,32 @@ public final class MvelParser {
      * @return BlockStmt representing the Java block
      * @throws ParseProblemException if the source code has parser errors
      */
-    public static BlockStmt parseBlock(final String blockStatement) {
-        return simplifiedParse(BLOCK, provider(blockStatement));
+    public ParseResult<BlockStmt> parseBlock(final String blockStatement) {
+        return parse(BLOCK, provider(blockStatement));
+    }
+
+    /**
+     * Parses the Java statement contained in a {@link String} and returns a
+     * {@link Statement} that represents it.
+     *
+     * @param statement {@link String} containing Java statement code
+     * @return Statement representing the Java statement
+     * @throws ParseProblemException if the source code has parser errors
+     */
+    public ParseResult<Statement> parseStatement(final String statement) {
+        return parse(STATEMENT, provider(statement));
+    }
+
+    /**
+     * Parses the Java import contained in a {@link String} and returns a
+     * {@link ImportDeclaration} that represents it.
+     *
+     * @param importDeclaration {@link String} containing Java import code
+     * @return ImportDeclaration representing the Java import declaration
+     * @throws ParseProblemException if the source code has parser errors
+     */
+    public ParseResult<ImportDeclaration> parseImport(final String importDeclaration) {
+        return parse(IMPORT_DECLARATION, provider(importDeclaration));
     }
 
     /**
@@ -321,8 +398,45 @@ public final class MvelParser {
      * @throws ParseProblemException if the source code has parser errors
      */
     @SuppressWarnings("unchecked")
-    public static <T extends Expression> T parseExpression(final String expression) {
-        return (T) simplifiedParse(EXPRESSION, provider(expression));
+    public <T extends Expression> ParseResult<T> parseExpression(final String expression) {
+        return (ParseResult<T>) parse(EXPRESSION, provider(expression));
+    }
+
+    /**
+     * Parses the Java annotation contained in a {@link String} and returns a
+     * {@link AnnotationExpr} that represents it.
+     *
+     * @param annotation {@link String} containing Java annotation
+     * @return AnnotationExpr representing the Java annotation
+     * @throws ParseProblemException if the source code has parser errors
+     */
+    public ParseResult<AnnotationExpr> parseAnnotation(final String annotation) {
+        return parse(ANNOTATION, provider(annotation));
+    }
+
+    /**
+     * Parses the Java annotation body declaration(e.g fields or methods) contained in a
+     * {@link String} and returns a {@link BodyDeclaration} that represents it.
+     *
+     * @param body {@link String} containing Java body declaration
+     * @return BodyDeclaration representing the Java annotation
+     * @throws ParseProblemException if the source code has parser errors
+     */
+    public ParseResult<BodyDeclaration<?>> parseAnnotationBodyDeclaration(final String body) {
+        return parse(ANNOTATION_BODY, provider(body));
+    }
+
+    /**
+     * Parses a Java class or interface body declaration(e.g fields or methods) and returns a
+     * {@link BodyDeclaration} that represents it.
+     *
+     * @param body the body of a class or interface
+     * @return BodyDeclaration representing the Java interface body
+     * @throws ParseProblemException if the source code has parser errors
+     */
+    @SuppressWarnings("unchecked")
+    public <T extends BodyDeclaration<?>> ParseResult<T> parseBodyDeclaration(String body) {
+        return (ParseResult<T>) parse(CLASS_BODY, provider(body));
     }
 
     /**
@@ -332,8 +446,8 @@ public final class MvelParser {
      * @return ClassOrInterfaceType representing the type
      * @throws ParseProblemException if the source code has parser errors
      */
-    public static ClassOrInterfaceType parseClassOrInterfaceType(String type) {
-        return simplifiedParse(CLASS_OR_INTERFACE_TYPE, provider(type));
+    public ParseResult<ClassOrInterfaceType> parseClassOrInterfaceType(String type) {
+        return parse(CLASS_OR_INTERFACE_TYPE, provider(type));
     }
 
     /**
@@ -343,8 +457,20 @@ public final class MvelParser {
      * @return ClassOrInterfaceType representing the type
      * @throws ParseProblemException if the source code has parser errors
      */
-    public static Type parseType(String type) {
-        return simplifiedParse(TYPE, provider(type));
+    public ParseResult<Type> parseType(String type) {
+        return parse(TYPE, provider(type));
+    }
+
+    /**
+     * Parses a variable declaration expression and returns a {@link VariableDeclarationExpr}
+     * that represents it.
+     *
+     * @param declaration a variable declaration like {@code int x=2;}
+     * @return VariableDeclarationExpr representing the type
+     * @throws ParseProblemException if the source code has parser errors
+     */
+    public ParseResult<VariableDeclarationExpr> parseVariableDeclarationExpr(String declaration) {
+        return parse(VARIABLE_DECLARATION_EXPR, provider(declaration));
     }
 
     /**
@@ -354,8 +480,8 @@ public final class MvelParser {
      * @return the AST for the statement.
      * @throws ParseProblemException if the source code has parser errors
      */
-    public static ExplicitConstructorInvocationStmt parseExplicitConstructorInvocationStmt(String statement) {
-        return simplifiedParse(EXPLICIT_CONSTRUCTOR_INVOCATION_STMT, provider(statement));
+    public ParseResult<ExplicitConstructorInvocationStmt> parseExplicitConstructorInvocationStmt(String statement) {
+        return parse(EXPLICIT_CONSTRUCTOR_INVOCATION_STMT, provider(statement));
     }
 
     /**
@@ -365,8 +491,8 @@ public final class MvelParser {
      * @return the AST for the name
      * @throws ParseProblemException if the source code has parser errors
      */
-    public static Name parseName(String qualifiedName) {
-        return simplifiedParse(NAME, provider(qualifiedName));
+    public ParseResult<Name> parseName(String qualifiedName) {
+        return parse(NAME, provider(qualifiedName));
     }
 
     /**
@@ -376,8 +502,87 @@ public final class MvelParser {
      * @return the AST for the name
      * @throws ParseProblemException if the source code has parser errors
      */
-    public static SimpleName parseSimpleName(String name) {
-        return simplifiedParse(SIMPLE_NAME, provider(name));
+    public ParseResult<SimpleName> parseSimpleName(String name) {
+        return parse(SIMPLE_NAME, provider(name));
     }
 
+    /**
+     * Parses a single parameter (a type and a name) and returns it as a Parameter.
+     *
+     * @param parameter a parameter like "int[] x"
+     * @return the AST for the parameter
+     * @throws ParseProblemException if the source code has parser errors
+     */
+    public ParseResult<Parameter> parseParameter(String parameter) {
+        return parse(PARAMETER, provider(parameter));
+    }
+
+    /**
+     * Parses a package declaration and returns it as a PackageDeclaration.
+     *
+     * @param packageDeclaration a declaration like "package com.microsoft.java;"
+     * @return the AST for the parameter
+     * @throws ParseProblemException if the source code has parser errors
+     */
+    public ParseResult<PackageDeclaration> parsePackageDeclaration(String packageDeclaration) {
+        return parse(PACKAGE_DECLARATION, provider(packageDeclaration));
+    }
+
+    /**
+     * Parses a type declaration and returns it as a TypeDeclaration.
+     *
+     * @param typeDeclaration a declaration like "class X {}"
+     * @return the AST for the type declaration
+     * @throws ParseProblemException if the source code has parser errors
+     */
+    public ParseResult<TypeDeclaration<?>> parseTypeDeclaration(String typeDeclaration) {
+        return parse(TYPE_DECLARATION, provider(typeDeclaration));
+    }
+
+    /**
+     * Parses a module declaration and returns it as a ModuleDeclaration.
+     *
+     * @param moduleDeclaration a declaration like "module X {}"
+     * @return the AST for the module declaration
+     * @throws ParseProblemException if the source code has parser errors
+     * @see ModuleDeclaration
+     */
+    public ParseResult<ModuleDeclaration> parseModuleDeclaration(String moduleDeclaration) {
+        return parse(MODULE_DECLARATION, provider(moduleDeclaration));
+    }
+
+    /**
+     * Parses a module directive and returns it as a ModuleDirective.
+     *
+     * @param moduleDirective a directive like "opens C;"
+     * @return the AST for the module directive
+     * @throws ParseProblemException if the source code has parser errors
+     * @see ModuleDirective
+     */
+    public ParseResult<ModuleDirective> parseModuleDirective(String moduleDirective) {
+        return parse(MODULE_DIRECTIVE, provider(moduleDirective));
+    }
+
+    /**
+     * Parses a type parameter and returns it as a TypeParameter
+     *
+     * @param typeParameter a parameter like "T extends Serializable"
+     * @return the AST for the type parameter
+     * @throws ParseProblemException if the source code has parser errors
+     */
+    public ParseResult<TypeParameter> parseTypeParameter(String typeParameter) {
+        return parse(TYPE_PARAMETER, provider(typeParameter));
+    }
+
+    /**
+     * Parses a method declaration and returns it as a MethodDeclaration.
+     *
+     * @param methodDeclaration a method declaration like "void foo() {}"
+     * @return the AST for the method declaration
+     * @throws ParseProblemException if the source code has parser errors
+     * @see MethodDeclaration
+     */
+    public ParseResult<MethodDeclaration> parseMethodDeclaration(String methodDeclaration) {
+        return parse(METHOD_DECLARATION, provider(methodDeclaration));
+    }
 }

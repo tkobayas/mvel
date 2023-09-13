@@ -16,40 +16,65 @@
 
 package org.mvel3.transpiler.context;
 
-import org.mvel3.transpiler.MVELTranspilerException;
+import com.github.javaparser.ParserConfiguration;
+import com.github.javaparser.resolution.SymbolResolver;
+import com.github.javaparser.resolution.TypeSolver;
+import com.github.javaparser.symbolsolver.JavaSymbolSolver;
+import com.github.javaparser.symbolsolver.resolution.SymbolSolver;
+import org.mvel3.parser.MvelParser;
 import org.mvel3.transpiler.ast.RootTypeThisExpr;
 import org.mvel3.transpiler.ast.TypedExpression;
-import org.mvel3.util.TypeResolver;
 import org.mvel3.transpiler.util.OptionalUtils;
 
-import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static org.mvel3.util.StringUtils.isEmpty;
-
 public class MvelTranspilerContext {
 
     private final Map<String, Declaration> declarations = new HashMap<>();
-    private final Map<String, StaticMethod> staticMethods = new HashMap<>();
-    private final Map<String, DeclaredFunction> declaredFunctions = new HashMap<>();
 
-    private final TypeResolver typeResolver;
+    private final Set<String> imports = new HashSet<>();
+
+    private final Set<String> staticImports = new HashSet<>();
+
+    private final Set<String> inputs = new HashSet<>();
+
+    private final MvelParser parser;
+
+    private TypeSolver typeSolver;
+
+    private JavaSymbolSolver symbolResolver;
+
+    private ParserConfiguration parserConfiguration;
 
     // Used in ConstraintParser
     private Optional<Class<?>> rootPattern = Optional.empty();
     private Optional<String> rootPrefix = Optional.empty();
 
-    public MvelTranspilerContext(TypeResolver typeResolver) {
-        this.typeResolver = typeResolver;
+    public MvelTranspilerContext(MvelParser parser, TypeSolver typeSolver) {
+        this.parser = parser;
+        this.typeSolver = typeSolver;
+        this.parserConfiguration = parser.getParserConfiguration();
+        this.symbolResolver = (JavaSymbolSolver) parserConfiguration.getSymbolResolver().get();
     }
 
-    public TypeResolver getTypeResolver() {
-        return typeResolver;
+    public MvelParser getParser() {
+        return parser;
+    }
+
+    public TypeSolver getTypeSolver() {
+        return typeSolver;
+    }
+
+    public ParserConfiguration getParserConfiguration() {
+        return parserConfiguration;
+    }
+
+    public JavaSymbolSolver getSymbolResolver() {
+        return symbolResolver;
     }
 
     public MvelTranspilerContext addDeclaration(String name, Class<?> clazz) {
@@ -66,38 +91,32 @@ public class MvelTranspilerContext {
         return Optional.ofNullable(d);
     }
 
-    public Optional<Class<?>> findEnum(String name) {
-        try {
-            return Optional.of(typeResolver.resolveType(name));
-        } catch (ClassNotFoundException e) {
-            return Optional.empty();
-        }
-    }
-
-    public Class<?> resolveType(String name) {
-        try {
-            return typeResolver.resolveType(name);
-        } catch (ClassNotFoundException e) {
-            throw new MVELTranspilerException(e);
-        }
-    }
-
-    public MvelTranspilerContext addStaticMethod(String name, Method method) {
-        staticMethods.put(name, new StaticMethod(name, method));
+    public MvelTranspilerContext addStaticImport(String name) {
+        this.staticImports.add(name);
         return this;
     }
 
-    public Optional<Method> findStaticMethod(String name) {
-        return Optional.ofNullable(staticMethods.get(name)).map(StaticMethod::getMethod);
-    }
-
-    public MvelTranspilerContext addDeclaredFunction(String name, String returnType, List<String> arguments) {
-        declaredFunctions.put(name, new DeclaredFunction(this.typeResolver, name, returnType, arguments));
+    public MvelTranspilerContext addImport(String name) {
+        this.imports.add(name);
         return this;
     }
 
-    public Optional<DeclaredFunction> findDeclaredFunction(String name) {
-        return Optional.ofNullable(declaredFunctions.get(name));
+
+    public MvelTranspilerContext addInput(String name) {
+        this.inputs.add(name);
+        return this;
+    }
+
+    public Set<String> getImports() {
+        return imports;
+    }
+
+    public Set<String> getStaticImports() {
+        return staticImports;
+    }
+
+    public Set<String> getInputs() {
+        return inputs;
     }
 
     public void setRootPatternPrefix(Class<?> rootPattern, String rootPrefix) {

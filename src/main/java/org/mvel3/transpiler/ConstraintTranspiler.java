@@ -16,10 +16,10 @@
 
 package org.mvel3.transpiler;
 
+import com.github.javaparser.ParseResult;
 import com.github.javaparser.ast.expr.Expression;
 import org.mvel3.transpiler.ast.TypedExpression;
 import org.mvel3.transpiler.context.MvelTranspilerContext;
-import org.mvel3.parser.MvelParser;
 
 /* A special case of compiler in that compiles constraints, that is
     every variable can be implicitly a field of the root object
@@ -35,7 +35,11 @@ public class ConstraintTranspiler {
     }
 
     public TranspiledExpressionResult compileExpression(String mvelExpressionString) {
-        Expression parsedExpression = MvelParser.parseExpression(mvelExpressionString);
+        ParseResult<Expression> result = mvelTranspilerContext.getParser().parseExpression(mvelExpressionString);
+        if (!result.isSuccessful()) {
+            throw new RuntimeException(result.getProblems().toString());
+        }
+        Expression parsedExpression = result.getResult().get();
         return compileExpression(parsedExpression);
     }
 
