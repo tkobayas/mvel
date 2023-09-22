@@ -90,8 +90,8 @@ public class MvelTranspilerContext {
         return this;
     }
 
-    public MvelTranspilerContext addDeclaration(String name, Class<?> clazz, String annotations) {
-        declarations.put(name, new Declaration(name, clazz, annotations));
+    public MvelTranspilerContext addDeclaration(String name, Class<?> clazz, String generics) {
+        declarations.put(name, new Declaration(name, clazz, generics));
         return this;
     }
 
