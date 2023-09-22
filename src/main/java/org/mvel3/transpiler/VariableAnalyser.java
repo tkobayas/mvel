@@ -7,8 +7,11 @@ import java.util.HashSet;
 import java.util.Set;
 
 public class VariableAnalyser extends DrlVoidVisitorAdapter<Void> {
+
     private Set<String> available = new HashSet<>();
     private Set<String> used = new HashSet<>();
+
+    private Set<String> found = new HashSet<>();
 
     public VariableAnalyser(Set<String> available) {
         this.available = available;
@@ -23,10 +26,16 @@ public class VariableAnalyser extends DrlVoidVisitorAdapter<Void> {
     public void visit(DrlNameExpr n, Void arg) {
         if (available.contains(n.getNameAsString())) {
             used.add(n.getNameAsString());
+        } else {
+            found.add(n.getNameAsString());
         }
     }
 
     public Set<String> getUsed() {
         return used;
+    }
+
+    public Set<String> getFound() {
+        return found;
     }
 }

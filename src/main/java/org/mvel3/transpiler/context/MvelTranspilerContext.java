@@ -20,6 +20,7 @@ import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.resolution.SymbolResolver;
 import com.github.javaparser.resolution.TypeSolver;
 import com.github.javaparser.symbolsolver.JavaSymbolSolver;
+import com.github.javaparser.symbolsolver.javaparsermodel.JavaParserFacade;
 import com.github.javaparser.symbolsolver.resolution.SymbolSolver;
 import org.mvel3.parser.MvelParser;
 import org.mvel3.transpiler.ast.RootTypeThisExpr;
@@ -50,6 +51,8 @@ public class MvelTranspilerContext {
 
     private ParserConfiguration parserConfiguration;
 
+    private JavaParserFacade facade;
+
     // Used in ConstraintParser
     private Optional<Class<?>> rootPattern = Optional.empty();
     private Optional<String> rootPrefix = Optional.empty();
@@ -59,6 +62,7 @@ public class MvelTranspilerContext {
         this.typeSolver = typeSolver;
         this.parserConfiguration = parser.getParserConfiguration();
         this.symbolResolver = (JavaSymbolSolver) parserConfiguration.getSymbolResolver().get();
+        this.facade = JavaParserFacade.get(typeSolver);
     }
 
     public MvelParser getParser() {
@@ -67,6 +71,10 @@ public class MvelTranspilerContext {
 
     public TypeSolver getTypeSolver() {
         return typeSolver;
+    }
+
+    public JavaParserFacade getFacade() {
+        return facade;
     }
 
     public ParserConfiguration getParserConfiguration() {
@@ -79,6 +87,11 @@ public class MvelTranspilerContext {
 
     public MvelTranspilerContext addDeclaration(String name, Class<?> clazz) {
         declarations.put(name, new Declaration(name, clazz));
+        return this;
+    }
+
+    public MvelTranspilerContext addDeclaration(String name, Class<?> clazz, String annotations) {
+        declarations.put(name, new Declaration(name, clazz, annotations));
         return this;
     }
 
@@ -126,6 +139,10 @@ public class MvelTranspilerContext {
 
     public Optional<Class<?>> getRootPattern() {
         return rootPattern;
+    }
+
+    public Optional<String> getRootPrefix() {
+        return rootPrefix;
     }
 
     public Optional<TypedExpression> createRootTypePrefix() {

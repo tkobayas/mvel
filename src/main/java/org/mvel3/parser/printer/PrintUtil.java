@@ -21,6 +21,7 @@ import com.github.javaparser.ast.Node;
 import com.github.javaparser.printer.DefaultPrettyPrinterVisitor;
 import com.github.javaparser.printer.configuration.DefaultPrinterConfiguration;
 import com.github.javaparser.printer.configuration.PrinterConfiguration;
+import com.github.javaparser.printer.lexicalpreservation.LexicalPreservingPrinter;
 import com.github.javaparser.resolution.TypeSolver;
 
 public class PrintUtil {
@@ -30,8 +31,9 @@ public class PrintUtil {
     }
 
     public static String printNode(Node node, TypeSolver typeSolver) {
+        //return LexicalPreservingPrinter.print(node);
+
         PrinterConfiguration prettyPrinterConfiguration = new DefaultPrinterConfiguration();
-        //MVELPrintVisitor mvelPrintVisitor = new MVELPrintVisitor(prettyPrinterConfiguration, typeSolver);
         DefaultPrettyPrinterVisitor printVisitor = new DefaultPrettyPrinterVisitor(prettyPrinterConfiguration);
 
         node.accept(printVisitor, null);

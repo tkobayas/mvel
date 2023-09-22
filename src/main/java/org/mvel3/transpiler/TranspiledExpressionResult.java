@@ -16,6 +16,7 @@
 
 package org.mvel3.transpiler;
 
+import com.github.javaparser.ast.ImportDeclaration;
 import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.expr.Expression;
 import com.github.javaparser.ast.stmt.BlockStmt;
@@ -49,13 +50,22 @@ public class TranspiledExpressionResult implements TranspiledResult {
         return type;
     }
 
+    public NodeList<ImportDeclaration> getImports() {
+        throw new UnsupportedOperationException();
+    }
+
     public String asString() {
         return printNode(expression);
     }
 
     @Override
-    public BlockStmt statementResults() {
+    public BlockStmt getBlock() {
         return new BlockStmt(NodeList.nodeList(new ExpressionStmt(expression)));
+    }
+
+    @Override
+    public void rewriteBlock() {
+
     }
 
     @Override

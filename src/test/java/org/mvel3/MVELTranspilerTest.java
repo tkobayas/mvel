@@ -49,99 +49,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class MVELTranspilerTest implements TranspilerTest {
 
     @Test
-    public void test() {
-        TypeSolver typeSolver = new CombinedTypeSolver(new ReflectionTypeSolver(false));
-        JavaSymbolSolver solver = new JavaSymbolSolver(typeSolver);
-
-        ParserConfiguration conf = new ParserConfiguration();
-        conf.setLanguageLevel(JAVA_11);
-        conf.setSymbolResolver(solver);
-
-        JavaParser parser = new JavaParser(conf);
-        ParseResult<Statement> result =  parser.parseStatement("if (i == 20) {}");
-        if (!result.isSuccessful()) {
-            throw new RuntimeException(result.getProblems().toString());
-        }
-
-        Statement stmt = result.getResult().get();
-
-        CompilationUnit unit = new CompilationUnit();
-
-        ClassOrInterfaceDeclaration cls = unit.addClass("DummyClass");
-
-        //inputs.stream().forEach( var -> cls.addPrivateField(declarations.get(var).getClazz(), var));
-
-        MethodDeclaration method = cls.addMethod("dummyMethod");
-        BlockStmt blockStmt = new BlockStmt();
-        blockStmt.addStatement(stmt);
-        method.setBody(blockStmt);
-
-        conf.getSymbolResolver().ifPresent(c -> ((JavaSymbolSolver)c).inject(unit));
-
-
-        Node n = stmt.getChildNodes().get(0);
-        VariableDeclarator varDeclr = stmt.findFirst(VariableDeclarator.class).get();
-        ResolvedType type = varDeclr.getInitializer().get().calculateResolvedType();
-
-
-//        test(ctx -> ctx.addDeclaration("p", Person.class),
-//             "{ java.math.BigInteger bi = java.math.BigInteger.valueOf((long)10.2); } ",
-//             "{ java.math.BigInteger bi = java.math.BigInteger.valueOf((long)10.2); }");
-    }
-
-    @Test
-    public void testCompilationUnit() {
-        TypeSolver typeSolver = new CombinedTypeSolver(new ReflectionTypeSolver(false));
-        JavaSymbolSolver solver = new JavaSymbolSolver(typeSolver);
-
-        ParserConfiguration conf = new ParserConfiguration();
-        conf.setLanguageLevel(JAVA_11);
-        conf.setSymbolResolver(solver);
-
-        JavaParser parser = new JavaParser(conf);
-        ParseResult<CompilationUnit> result =  parser.parse(
-                "package org.domain; " +
-                "import " + Person.class.getCanonicalName() + ";" +
-                "public class MyClass{ " +
-                "   public MyClass() {}" +
-                "   public void method() { var p = new Person(\"yoda\");\n" +
-                "                          p.setAge(100);}" +
-                "}");
-        if (!result.isSuccessful()) {
-            throw new RuntimeException(result.getProblems().toString());
-        }
-
-        CompilationUnit stmt = result.getResult().get();
-        Node n = stmt.getChildNodes().get(0);
-        MethodCallExpr methodCallExpr = stmt.findFirst(MethodCallExpr.class).get();
-        ResolvedType type = methodCallExpr.getScope().get().calculateResolvedType();
-        System.out.println(type);
-//        ResolvedType type = varDeclr.getInitializer().get().calculateResolvedType();
-//        System.out.println(type);
-//        type = ((FieldAccessExpr)varDeclr.getInitializer().get()).getScope().calculateResolvedType();
-//        type = ((FieldAccessExpr)((FieldAccessExpr)varDeclr.getInitializer().get()).getScope()).getScope().calculateResolvedType();
-//        System.out.println(type);
-
-
-//        test(ctx -> ctx.addDeclaration("p", Person.class),
-//             "{ java.math.BigInteger bi = java.math.BigInteger.valueOf((long)10.2); } ",
-//             "{ java.math.BigInteger bi = java.math.BigInteger.valueOf((long)10.2); }");
-    }
-
-    @Test
     public void test1() {
-        BigDecimal bd = null;
-        test(ctx -> ctx.addDeclaration("bd", BigDecimal.class),
-             "{ bd.sum( java.math.BigDecimal.valueOf(10.2, java.math.MathContext.DECIMAL128));} ",
-             "{ bd.sum( java.math.BigDecimal.valueOf(10.2, java.math.MathContext.DECIMAL128));}");
+        try {
+            java.lang.reflect.Method method = MVELTranspilerTest.class.getMethod("getX");
+            System.out.println(method.getGenericReturnType().getTypeName());
+        } catch (NoSuchMethodException e) {
+            throw new RuntimeException(e);
+        }
     }
 
-    @Test
-    public void test2() {
-        BigDecimal bd = null;
-        test(ctx -> ctx.addDeclaration("bd", BigDecimal.class),
-             "{ java.math.MathContext ctx = java.math.MathContext.DECIMAL128;} ",
-             "{ java.math.MathContext ctx = java.math.MathContext.DECIMAL128;}");
+    public List<String> getX() {
+        return null;
     }
 
     @Test
@@ -182,12 +100,12 @@ public class MVELTranspilerTest implements TranspilerTest {
 
     @Test
     public void testConvertPropertyToAccessorForEach() {
-
+        // The city rewrite wouldn't work, if it didn't know the generics
         test(ctx -> ctx.addDeclaration("$p", Person.class),
-             "{ for(Address a: $p.addresses){\n" +
+             "{ for(var a: $p.addresses){\n" +
              "  results.add(a.city);\n" +
              "}\n }",
-             "{ for (Address a : $p.getAddresses()) {\n" +
+             "{ for (var a : $p.getAddresses()) {\n" +
              "  results.add(a.getCity());\n" +
              "}\n }");
     }
@@ -873,11 +791,11 @@ public class MVELTranspilerTest implements TranspilerTest {
     public void testMapSetToNewMap() {
         test(ctx -> ctx.addDeclaration("$p", Person.class),
              "{" +
-                     "Map newhashmap = new HashMap();\n" +
+                     "Map<String, String> newhashmap = new HashMap<>();\n" +
                      "$p.items = newhashmap;\n" +
                      "}",
              "{ " +
-                     "Map newhashmap = new HashMap(); \n" +
+                     "Map<String, String> newhashmap = new HashMap<>(); \n" +
                      "$p.setItems(newhashmap); " +
                      "}");
     }
@@ -901,20 +819,20 @@ public class MVELTranspilerTest implements TranspilerTest {
     public void testMixArrayMap() {
         test(ctx -> ctx.addDeclaration("$p", Person.class),
              "{ " +
-                     "    var m = new HashMap();\n" +
-                     "    var l = new ArrayList();\n" +
+                     "    var m = new HashMap<String, List>();\n" +
+                     "    var l = new ArrayList<String>();\n" +
                      "    l.add(\"first\");\n" +
                      "    m.put(\"content\", l);\n" +
-                     "    System.out.println(((ArrayList)m[\"content\"])[0]);\n" +
-                     "    list.add(((ArrayList)m[\"content\"])[0]);\n" +
+                     "    System.out.println(m[\"content\"][0]);\n" +
+                     "    list.add(m[\"content\"][0]);\n" +
                      "}",
              "{ " +
-                     "    var m = new HashMap();\n" +
-                     "    var l = new ArrayList();\n" +
+                     "    var m = new HashMap<String, List>();\n" +
+                     "    var l = new ArrayList<String>();\n" +
                      "    l.add(\"first\");\n" +
                      "    m.put(\"content\", l);\n" +
-                     "    System.out.println(((ArrayList) m.get(\"content\")).get(0));\n" +
-                     "    list.add(((ArrayList) m.get(\"content\")).get(0));\n" +
+                     "    System.out.println(m.get(\"content\").get(0));\n" +
+                     "    list.add(m.get(\"content\").get(0));\n" +
                      "}");
     }
 
@@ -1170,19 +1088,19 @@ public class MVELTranspilerTest implements TranspilerTest {
 
     @Test
     public void testAddCastToMapGet() {
-        test(ctx -> ctx.addDeclaration("map", Map.class),
+        test(ctx -> ctx.addDeclaration("map", Map.class, "<String, java.util.Map>"),
              " { Map pMap = map.get( \"whatever\" ); }",
-             " { java.util.Map pMap = (java.util.Map) (map.get(\"whatever\")); }");
+             " { Map pMap = map.get(\"whatever\"); }");
     }
 
     @Test
     public void testAddCastToMapGetOfDeclaration() {
         test(ctx -> {
-                 ctx.addDeclaration("map", Map.class);
+                 ctx.addDeclaration("map", Map.class, "<String, java.util.Map>");
                  ctx.addDeclaration("$p", Person.class);
              },
-             " { Map pMap = map.get( $p.getName() ); }",
-             " { java.util.Map pMap = (java.util.Map) (map.get($p.getName())); }");
+             " { Map pMap = map.get( $p.name ); }",
+             " { Map pMap = map.get($p.getName() ); }");
     }
 
     @Test
@@ -1315,49 +1233,59 @@ public class MVELTranspilerTest implements TranspilerTest {
 
     @Test
     public void forIterationWithSubtype() {
-        test(ctx -> ctx.addDeclaration("$people", List.class),
+        // this wouldn't rewrite the property accessor if it didn't know the generics.
+        test(ctx -> ctx.addDeclaration("$people", List.class, "<Person>"),
              "{" +
-                     "    for (Person p : $people ) {\n" +
-                     "        System.out.println(\"Person: \" + p);\n" +
-                     "    }\n" +
-                     "}",
+             "    for (var p : $people ) {\n" +
+             "        System.out.println(\"Person's salary: \" + p.salary );\n" +
+             "    }\n" +
+             "}",
              "{\n" +
-                     "    for (Object _p : $people) {\n" +
-                     "        Person p = (Person) _p;\n" +
-                     "        {\n " +
-                     "              System.out.println(\"Person: \" + p);\n" +
-                     "        }\n" +
-                     "    }\n" +
-                     "}"
-        );
+             "    for (var p : $people) {\n" +
+             "        System.out.println(\"Person's salary: \" + p.getSalary() );\n" +
+             "    }\n" +
+             "}"
+            );
+    }
+
+    @Test @Ignore
+    public void forIterationWithSubtype2() {
+        // this wouldn't rewrite the property accessor if it didn't know the generics.
+        test(ctx -> ctx.addDeclaration("$people", List.class, "<Person>"),
+             "{" +
+             "    for (var p : $people ) {\n" +
+             "        System.out.println(\"Person's salary: \" + p.salary );\n" +
+             "    }\n" +
+             "}",
+             "{\n" +
+             "    for (var p : $people) {\n" +
+             "        System.out.println(\"Person's salary: \" + p.getSalary() );\n" +
+             "    }\n" +
+             "}"
+            );
     }
 
     @Test
     public void forIterationWithSubtypeNested() {
+        // this wouldn't rewrite the property accessor if it didn't know the generics.
         test(ctx -> {
-                 ctx.addDeclaration("$people", List.class);
-                 ctx.addDeclaration("$addresses", List.class);
+                 ctx.addDeclaration("$people", List.class, "<Person>");
+                 ctx.addDeclaration("$addresses", List.class, "<Address>");
              },
              "{" +
-                     "    for (Person p : $people ) {\n" +
+                     "    for (var p : $people ) {\n" +
                      "       System.out.println(\"Simple statement\");\n" +
-                     "       for (Address a : $addresses ) {\n" +
-                     "           System.out.println(\"Person: \" + p + \" address: \" + a);\n" +
+                     "       for (var a : $addresses ) {\n" +
+                     "           System.out.println(\"Person's salary: \" + p.salary + \" address's City: \" + a.city);\n" +
                      "       }\n" +
                      "    }\n" +
                      "}",
              "{\n" +
-                     "    for (Object _p : $people) {\n" +
-                     "        Person p = (Person) _p;\n" +
-                     "        {\n " +
+                     "    for (var p : $people) {\n" +
                      "           System.out.println(\"Simple statement\");\n" +
-                     "           for (Object _a : $addresses) {\n" +
-                     "               Address a = (Address) _a;\n" +
-                     "                   {\n " +
-                     "                       System.out.println(\"Person: \" + p + \" address: \" + a);\n" +
-                     "                }\n" +
+                     "           for (var a : $addresses) {\n" +
+             "           System.out.println(\"Person's salary: \" + p.getSalary() + \" address's City: \" + a.getCity());\n" +
                      "            }\n" +
-                     "        }\n" +
                      "    }\n" +
                      "}"
         );

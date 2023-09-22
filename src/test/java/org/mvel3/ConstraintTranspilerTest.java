@@ -16,8 +16,10 @@
 
 package org.mvel3;
 
+import org.junit.Ignore;
 import org.mvel3.transpiler.TranspiledExpressionResult;
 import org.mvel3.transpiler.ConstraintTranspiler;
+import org.mvel3.transpiler.TranspiledResult;
 import org.mvel3.transpiler.context.MvelTranspilerContext;
 import org.mvel3.util.ClassTypeResolver;
 import org.mvel3.util.TypeResolver;
@@ -32,92 +34,114 @@ public class ConstraintTranspilerTest implements TranspilerTest {
 
     @Test
     public void testBigDecimalPromotion() {
-        testExpression(c -> c.setRootPatternPrefix(Person.class, "_this"), "salary + salary",
-                       "_this.getSalary().add(_this.getSalary(), java.math.MathContext.DECIMAL128)");
+        testExpression(c -> c.setRootPatternPrefix(Person.class, "_this"), "{var x = salary + salary;}",
+                       "{var x = _this.getSalary().add(_this.getSalary(), java.math.MathContext.DECIMAL128);}");
     }
 
-    @Test
+    @Test @Ignore // we are not coercing Strings yet (mdp);
     public void testBigDecimalStringEquality() {
-        testExpression(c -> c.setRootPatternPrefix(Person.class, "_this"), "salary == \"90\"",
-                       "_this.getSalary().compareTo(new java.math.BigDecimal(\"90\")) == 0");
-    }
-
-    @Test
-    public void testBigDecimalStringNonEquality() {
-        testExpression(c -> c.setRootPatternPrefix(Person.class, "_this"), "salary != \"90\"",
-                       "_this.getSalary().compareTo(new java.math.BigDecimal(\"90\")) != 0");
+        testExpression(c -> c.setRootPatternPrefix(Person.class, "_this"), "{var x = salary == \"90\";}",
+                       "{var x = _this.getSalary().compareTo(new java.math.BigDecimal(\"90\")) == 0;}");
     }
 
     @Test
     public void testBigDecimalPromotionToIntMethod() {
-        testExpression(c -> c.setRootPatternPrefix(Person.class, "_this"), "isEven(salary)",
-                       "_this.isEven(_this.getSalary().intValue())");
+        testExpression(c -> c.setRootPatternPrefix(Person.class, "_this"), "{var x = isEven(salary.intValue());}",
+                       "{var x = _this.isEven(_this.getSalary().intValue());}");
     }
 
     @Test
     public void testConversionConstructorArgument() {
-        testExpression(c -> c.addDeclaration("$p", Person.class), "new Person($p.name, $p)",
-                       "new org.mvel3.Person($p.getName(), $p)");
+        testExpression(c -> c.addDeclaration("$p", Person.class), "{var x = new Person($p.name, $p);}",
+                       "{var x = new Person($p.getName(), $p);}");
     }
 
     @Test
     public void testBigDecimalMultiplyInt() {
-        testExpression(c -> c.addDeclaration("$bd1", BigDecimal.class), "$bd1 * 10",
-                       "$bd1.multiply(new java.math.BigDecimal(10), java.math.MathContext.DECIMAL128)");
+        testExpression(c -> c.addDeclaration("$bd1", BigDecimal.class), "{var x = $bd1 * 10;}",
+                       "{var x = $bd1.multiply(BigDecimal.valueOf(10), java.math.MathContext.DECIMAL128);}");
     }
 
     @Test
     public void testBigDecimalMultiplyNegativeInt() {
-        testExpression(c -> c.addDeclaration("$bd1", BigDecimal.class), "$bd1 * -1",
-                       "$bd1.multiply(new java.math.BigDecimal(-1), java.math.MathContext.DECIMAL128)");
+        testExpression(c -> c.addDeclaration("$bd1", BigDecimal.class), "{var x = $bd1 * -1;}",
+                       "{var x = $bd1.multiply(BigDecimal.valueOf(-1), java.math.MathContext.DECIMAL128);}");
     }
 
     @Test
     public void testBigDecimalAddInt() {
-        testExpression(c -> c.addDeclaration("$bd1", BigDecimal.class), "$bd1 + 10",
-                       "$bd1.add(new java.math.BigDecimal(10), java.math.MathContext.DECIMAL128)");
+        testExpression(c -> c.addDeclaration("$bd1", BigDecimal.class), "{var x = $bd1 + 10;}",
+                       "{var x = $bd1.add(BigDecimal.valueOf(10), java.math.MathContext.DECIMAL128);}");
     }
 
     @Test
     public void testBigDecimalSubtractInt() {
-        testExpression(c -> c.addDeclaration("$bd1", BigDecimal.class), "$bd1 - 10",
-                       "$bd1.subtract(new java.math.BigDecimal(10), java.math.MathContext.DECIMAL128)");
+        testExpression(c -> c.addDeclaration("$bd1", BigDecimal.class), "{var x = $bd1 - 10;}",
+                       "{var x = $bd1.subtract(BigDecimal.valueOf(10), java.math.MathContext.DECIMAL128);}");
     }
 
     @Test
     public void testBigDecimalDivideInt() {
-        testExpression(c -> c.addDeclaration("$bd1", BigDecimal.class), "$bd1 / 10",
-                       "$bd1.divide(new java.math.BigDecimal(10), java.math.MathContext.DECIMAL128)");
+        testExpression(c -> c.addDeclaration("$bd1", BigDecimal.class), "{var x = $bd1 / 10;}",
+                       "{var x = $bd1.divide(BigDecimal.valueOf(10), java.math.MathContext.DECIMAL128);}");
     }
 
     @Test
     public void testBigDecimalModInt() {
-        testExpression(c -> c.addDeclaration("$bd1", BigDecimal.class), "$bd1 % 10",
-                       "$bd1.remainder(new java.math.BigDecimal(10), java.math.MathContext.DECIMAL128)");
+        testExpression(c -> c.addDeclaration("$bd1", BigDecimal.class), "{var x = $bd1 % 10;}",
+                       "{var x = $bd1.remainder(BigDecimal.valueOf(10), java.math.MathContext.DECIMAL128);}");
+    }
+
+    @Test @Ignore // no coercion of Strings yet (mdp)
+    public void testBigDecimalStringNonEquality() {
+        testExpression(c -> c.setRootPatternPrefix(Person.class, "_this"), "{var x = salary != \"90\";}",
+                       "{var x = _this.getSalary().compareTo(new java.math.BigDecimal(\"90\")) != 0;}");
+    }
+
+    @Test
+    public void testRootObjectWithPropertyAndBigRewrite() {
+        testExpression(c -> c.setRootPatternPrefix(Person.class, "_this"), "{var x = salary != 90;}",
+                       "{var x = _this.getSalary().compareTo(BigDecimal.valueOf(90)) != 0;}");
+    }
+
+    @Test
+    public void testRootObjectWithNestedPropertiesAndBigRewrite() {
+        testExpression(c -> c.setRootPatternPrefix(Person.class, "_this"), "{var x = parent.salary != 90;}",
+                       "{var x = _this.getParent().getSalary().compareTo(BigDecimal.valueOf(90)) != 0;}");
+    }
+
+    @Test
+    public void testRootObjectWithPropertyAndNestedMethdAndBigRewrite() {
+        testExpression(c -> c.setRootPatternPrefix(Person.class, "_this"), "{var x = parent.getSalary() != 90;}",
+                       "{var x = _this.getParent().getSalary().compareTo(BigDecimal.valueOf(90)) != 0;}");
+    }
+
+    @Test
+    public void testRootObjectWithMethodAndBigRewrite() {
+        testExpression(c -> c.setRootPatternPrefix(Person.class, "_this"), "{var x = getSalary() != 90;}",
+                       "{var x = _this.getSalary().compareTo(BigDecimal.valueOf(90)) != 0;}");
+    }
+
+    @Test
+    public void testRootObjectWithMethodAndNestedPropertyAndBigRewrite() {
+        testExpression(c -> c.setRootPatternPrefix(Person.class, "_this"), "{var x = getParent().salary != 90;}",
+                       "{var x = _this.getParent().getSalary().compareTo(BigDecimal.valueOf(90)) != 0;}");
+    }
+
+    @Test
+    public void testRootObjectWithMethodAndNestedMethodAndBigRewrite() {
+        testExpression(c -> c.setRootPatternPrefix(Person.class, "_this"), "{var x = getParent().getSalary() != 90;}",
+                       "{var x = _this.getParent().getSalary().compareTo(BigDecimal.valueOf(90)) != 0;}");
     }
 
     public void testExpression(Consumer<MvelTranspilerContext> testFunction,
                                String inputExpression,
                                String expectedResult,
-                               Consumer<TranspiledExpressionResult> resultAssert) {
-        throw new RuntimeException("Fix this test"); // (mdp)
-//        Set<String> imports = new HashSet<>();
-//        imports.add("java.util.List");
-//        imports.add("java.util.ArrayList");
-//        imports.add("java.util.HashMap");
-//        imports.add("java.util.Map");
-//        imports.add("java.math.BigDecimal");
-//        imports.add("org.mvel3.Address");
-//        imports.add(Person.class.getCanonicalName());
-//        imports.add(Gender.class.getCanonicalName());
-//        TypeResolver typeResolver = new ClassTypeResolver(imports, this.getClass().getClassLoader());
-//        MvelTranspilerContext mvelTranspilerContext = new MvelTranspilerContext(typeResolver);
-//        testFunction.accept(mvelTranspilerContext);
-//        TranspiledExpressionResult compiled = new ConstraintTranspiler(mvelTranspilerContext).compileExpression(inputExpression);
-//
-//
-//        verifyBodyWithBetterDiff(expectedResult, compiled.resultAsString());
-//        resultAssert.accept(compiled);
+                               Consumer<TranspiledResult> resultAssert) {
+        test(testFunction,
+             inputExpression,
+             expectedResult,
+             resultAssert);
     }
 
     void testExpression(Consumer<MvelTranspilerContext> testFunction,

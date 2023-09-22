@@ -16,16 +16,23 @@
 
 package org.mvel3.transpiler;
 
+import com.github.javaparser.ast.ImportDeclaration;
+import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.stmt.BlockStmt;
 
 import java.util.Set;
 
 public interface TranspiledResult {
 
-    BlockStmt statementResults();
+    BlockStmt getBlock();
+
+    public void rewriteBlock();
+
+    NodeList<ImportDeclaration> getImports();
 
     // this overlaps with getUsedBindings, I've left above for now and will unify on this later.
     Set<String> getInputs();
+
 
     Object asString();
 }

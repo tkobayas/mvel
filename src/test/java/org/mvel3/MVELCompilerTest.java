@@ -2,10 +2,16 @@ package org.mvel3;
 
 import org.junit.Test;
 import org.mvel2.ParserContext;
+import org.mvel3.MVEL.Type;
 import org.mvel3.transpiler.context.Declaration;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -15,9 +21,13 @@ public class MVELCompilerTest {
         private Foo foo;
         private Bar bar;
 
-        public ContextCamelCase(Foo foo, Bar bar) {
+        private List<Foo> foos;
+
+        public ContextCamelCase(Foo foo, Bar bar, Foo... foos) {
             this.foo = foo;
             this.bar = bar;
+            this.foos = new ArrayList<>();
+            this.foos.addAll(Arrays.asList(foos));
         }
 
         public Foo getFoo() {
@@ -27,15 +37,23 @@ public class MVELCompilerTest {
         public Bar getBar() {
             return bar;
         }
+
+        public List<Foo> getFoos() {
+            return foos;
+        }
     }
 
     public static class ContextRecord {
         private Foo foo;
         private Bar bar;
 
-        public ContextRecord(Foo foo, Bar bar) {
+        private List<Foo> foos;
+
+        public ContextRecord(Foo foo, Bar bar, Foo... foos) {
             this.foo = foo;
             this.bar = bar;
+            this.foos = new ArrayList<>();
+            this.foos.addAll(Arrays.asList(foos));
         }
 
         public Foo foo() {
@@ -45,15 +63,23 @@ public class MVELCompilerTest {
         public Bar bar() {
             return bar;
         }
+
+        public List<Foo> foos() {
+            return foos;
+        }
     }
 
     public static class ContextMixed {
         private Foo foo;
         private Bar bar;
 
-        public ContextMixed(Foo foo, Bar bar) {
+        private List<Foo> foos;
+
+        public ContextMixed(Foo foo, Bar bar, Foo... foos) {
             this.foo = foo;
             this.bar = bar;
+            this.foos = new ArrayList<>();
+            this.foos.addAll(Arrays.asList(foos));
         }
 
         public Foo foo() {
@@ -62,6 +88,10 @@ public class MVELCompilerTest {
 
         public Bar getBar() {
             return bar;
+        }
+
+        public List<Foo> foos() {
+            return foos;
         }
     }
 
@@ -113,9 +143,9 @@ public class MVELCompilerTest {
 
     @Test
     public void testMapEvaluator() {
-        Map<String, Class> types = new HashMap<>();
-        types.put("foo", Foo.class);
-        types.put("bar", Bar.class);
+        Map<String, Type> types = new HashMap<>();
+        types.put("foo", Type.type(Foo.class));
+        types.put("bar", Type.type(Bar.class));
 
         Map<String, Object> vars = new HashMap<>();
         Foo foo = new Foo();
@@ -127,17 +157,40 @@ public class MVELCompilerTest {
         vars.put("bar", bar);
 
         MVEL mvel = new MVEL();
-        MapEvaluator evaluator = mvel.compileMapEvaluator("foo.getName() + bar.getName()", types, "foo", "bar");
+        MapEvaluator evaluator = mvel.compileMapEvaluator("foo.getName() + bar.getName()", getImports(), types, "foo", "bar");
         assertThat((String) evaluator.eval(vars)).isEqualTo("xxxyyy");
     }
 
     @Test
+    public void testMapEvaluatorWithGenerics() {
+        Map<String, Type> types = new HashMap<>();
+        types.put("foos", Type.type(List.class, "<Foo>"));
+
+        Foo foo1 = new Foo();
+        foo1.setName("foo1");
+
+        Foo foo2 = new Foo();
+        foo2.setName("foo2");
+
+        List<Foo> foos = new ArrayList<>();
+        foos.add(foo1);
+        foos.add(foo2);
+
+        Map<String, Object> vars = new HashMap<>();
+        vars.put("foos", foos);
+
+        MVEL mvel = new MVEL();
+        MapEvaluator evaluator = mvel.compileMapEvaluator("foos[0].name + foos[1].name", getImports(), types, "foos");
+        assertThat((String) evaluator.eval(vars)).isEqualTo("foo1foo2");
+    }
+
+    @Test
     public void testMapEvaluatorReturns() {
-        Map<String, Class> types = new HashMap<>();
-        types.put("a", int.class);
-        types.put("b", int.class);
-        types.put("c", int.class);
-        types.put("d", int.class);
+        Map<String, Type> types = new HashMap<>();
+        types.put("a", Type.type(int.class));
+        types.put("b", Type.type(int.class));
+        types.put("c", Type.type(int.class));
+        types.put("d", Type.type(int.class));
 
         Map<String, Object> vars = new HashMap<>();
         vars.put("a", 1);
@@ -146,7 +199,7 @@ public class MVELCompilerTest {
         vars.put("d", -1);
 
         MVEL mvel = new MVEL();
-        MapEvaluator evaluator = mvel.compileMapEvaluator("a = 4; b = 5; c = 6; d = a + b + c;", types, "a", "d");
+        MapEvaluator evaluator = mvel.compileMapEvaluator("a = 4; b = 5; c = 6; d = a + b + c;", getImports(), types, "a", "d");
         assertThat((int) evaluator.eval(vars)).isEqualTo(15);
 
         assertThat(vars.get("a")).isEqualTo(4); // updated
@@ -157,9 +210,9 @@ public class MVELCompilerTest {
 
     @Test
     public void testMapEvalutorInputs() {
-        Map<String, Class> types = new HashMap<>();
-        types.put("a", int.class);
-        types.put("b", int.class);
+        Map<String, Type> types = new HashMap<>();
+        types.put("a", Type.type(int.class));
+        types.put("b", Type.type(int.class));
         //types.put("d", int.class);
 
         Map<String, Object> vars = new HashMap<>();
@@ -167,7 +220,7 @@ public class MVELCompilerTest {
         vars.put("b", 2);
 
         MVEL mvel = new MVEL();
-        MapEvaluator evaluator = mvel.compileMapEvaluator("a = 4; b = 5; int c = 6; int d = a + b + c; return d;", types, "a", "d");
+        MapEvaluator evaluator = mvel.compileMapEvaluator("a = 4; b = 5; int c = 6; int d = a + b + c; return d;", getImports(), types, "a", "d");
         assertThat((int) evaluator.eval(vars)).isEqualTo(15);
 
         assertThat(vars.get("a")).isEqualTo(4); // updated
@@ -186,8 +239,27 @@ public class MVELCompilerTest {
         bar.setName("yyy");
 
         MVEL mvel = new MVEL();
-        ArrayEvaluator evaluator = mvel.compileArrayEvaluator("foo.getName() + bar.getName()", types);
+        ArrayEvaluator evaluator = mvel.compileArrayEvaluator("foo.getName() + bar.getName()", getImports(), types);
         assertThat((String) evaluator.eval(new Object[]{foo, bar})).isEqualTo("xxxyyy");
+    }
+
+    @Test
+    public void testArrayEvaluatorWithGenerics() {
+        Declaration[] types = new Declaration[] {new Declaration("foos", List.class, "<Foo>")};
+
+        Foo foo1 = new Foo();
+        foo1.setName("foo1");
+
+        Foo foo2 = new Foo();
+        foo2.setName("foo2");
+
+        List<Foo> foos = new ArrayList<>();
+        foos.add(foo1);
+        foos.add(foo2);
+
+        MVEL mvel = new MVEL();
+        ArrayEvaluator evaluator = mvel.compileArrayEvaluator("foos[0].name", getImports(), types);
+        assertThat((String) evaluator.eval(new Object[]{foos})).isEqualTo("foo1");
     }
 
     @Test
@@ -202,7 +274,7 @@ public class MVELCompilerTest {
         Object[] vars =new Object[] { 1, 2, 3, -1};
 
         MVEL mvel = new MVEL();
-        ArrayEvaluator evaluator = mvel.compileArrayEvaluator("a = 4; b = 5; c = 6; d = a + b + c;", types, "a", "d");
+        ArrayEvaluator evaluator = mvel.compileArrayEvaluator("a = 4; b = 5; c = 6; d = a + b + c;", getImports(), types, "a", "d");
         assertThat((int) evaluator.eval(vars)).isEqualTo(15);
 
         assertThat(vars[0]).isEqualTo(4); // updated
@@ -220,7 +292,7 @@ public class MVELCompilerTest {
         bar.setName("yyy");
 
         MVEL mvel = new MVEL();
-        PojoEvaluator<ContextCamelCase, String> evaluator = mvel.compilePojoEvaluator("foo.getName() + bar.getName()",
+        PojoEvaluator<ContextCamelCase, String> evaluator = mvel.compilePojoEvaluator("foo.getName() + bar.getName()", getImports(),
                                                                                        ContextCamelCase.class, String.class, new String[] {"foo", "bar"});
 
         ContextCamelCase context = new ContextCamelCase(foo, bar);
@@ -236,11 +308,27 @@ public class MVELCompilerTest {
         bar.setName("yyy");
 
         MVEL mvel = new MVEL();
-        PojoEvaluator<ContextRecord, String> evaluator = mvel.compilePojoEvaluator("foo.getName() + bar.getName()",
+        PojoEvaluator<ContextRecord, String> evaluator = mvel.compilePojoEvaluator("foo.getName() + bar.getName()", getImports(),
                                                                                    ContextRecord.class, String.class, new String[] {"foo", "bar"});
 
         ContextRecord context = new ContextRecord(foo, bar);
         assertThat(evaluator.eval(context)).isEqualTo("xxxyyy");
+    }
+
+    @Test
+    public void testPojoContextRecordEvaluatorWithGenerics() {
+        Foo foo1 = new Foo();
+        foo1.setName("foo1");
+
+        Foo foo2 = new Foo();
+        foo2.setName("foo2");
+
+        MVEL mvel = new MVEL();
+        PojoEvaluator<ContextRecord, String> evaluator = mvel.compilePojoEvaluator("foos[0].name + foos[1].name", getImports(),
+                                                                                   ContextRecord.class, String.class, "foos");
+
+        ContextRecord context = new ContextRecord(null, null, foo1, foo2);
+        assertThat(evaluator.eval(context)).isEqualTo("foo1foo2");
     }
 
     @Test
@@ -252,7 +340,7 @@ public class MVELCompilerTest {
         bar.setName("yyy");
 
         MVEL mvel = new MVEL();
-        PojoEvaluator<ContextMixed, String> evaluator = mvel.compilePojoEvaluator("foo.getName() + bar.getName()",
+        PojoEvaluator<ContextMixed, String> evaluator = mvel.compilePojoEvaluator("foo.getName() + bar.getName()", getImports(),
                                                                                     ContextMixed.class, String.class, "foo", "bar");
 
         ContextMixed context = new ContextMixed(foo, bar);
@@ -274,5 +362,20 @@ public class MVELCompilerTest {
 //        assertThat(context.getB()).isEqualTo(2); // not updated
 //        assertThat(context.getC()).isEqualTo(3); // not updated
 //        assertThat(context.getD()).isEqualTo(15); // updated
+    }
+
+
+    public static Set<String> getImports() {
+
+        Set<String> imports = new HashSet<>();
+        imports.add("java.util.List");
+        imports.add("java.util.ArrayList");
+        imports.add("java.util.HashMap");
+        imports.add("java.util.Map");
+        imports.add("java.math.BigDecimal");
+        imports.add(org.mvel3.Address.class.getCanonicalName());
+        imports.add(Foo.class.getCanonicalName());
+
+        return imports;
     }
 }

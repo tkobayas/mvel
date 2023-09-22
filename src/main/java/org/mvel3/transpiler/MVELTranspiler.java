@@ -19,19 +19,16 @@ package org.mvel3.transpiler;
 import com.github.javaparser.ParseResult;
 import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.ast.stmt.BlockStmt;
-import com.github.javaparser.ast.stmt.Statement;
 import com.github.javaparser.resolution.TypeSolver;
 import com.github.javaparser.symbolsolver.JavaSymbolSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver;
+import org.mvel3.MVEL.Type;
 import org.mvel3.parser.MvelParser;
 import org.mvel3.transpiler.context.MvelTranspilerContext;
 
-import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
-import java.util.stream.Stream;
 
 import static com.github.javaparser.ParserConfiguration.LanguageLevel.JAVA_15;
 
@@ -45,11 +42,7 @@ public class MVELTranspiler {
         this.mvelTranspilerContext = mvelTranspilerContext;
     }
 
-    public static TranspiledResult transpile(Object expression, Map<String, Class> types) {
-        return transpile(expression, types);
-    }
-
-    public static TranspiledResult transpile(Object expression, Map<String, Class> types, Consumer<MvelTranspilerContext> contextUpdates) {
+    public static TranspiledResult transpile(Object expression, Map<String, Type> types, Consumer<MvelTranspilerContext> contextUpdates) {
         String expressionString = expression.toString();
 
         TypeSolver typeSolver = new ReflectionTypeSolver(false);
@@ -68,40 +61,32 @@ public class MVELTranspiler {
             contextUpdates.accept(context);
         }
 
-        for (Map.Entry<String, Class> o : types.entrySet()) {
-            context.addDeclaration(o.getKey(), o.getValue());
+        for (Map.Entry<String, Type> o : types.entrySet()) {
+            context.addDeclaration(o.getKey(), o.getValue().getClazz(), o.getValue().getGenerics());
         }
+
+        if (context.getRootPattern().isPresent()) {
+            context.addDeclaration("_this", context.getRootPattern().get());
+        }
+
 
         MVELTranspiler mvelTranspiler = new MVELTranspiler(context);
 
-        TranspiledResult transpiledResult = null;
-        if (true) { //isAStatement(expressionString)) {
-            String expressionStringWithBraces = String.format("{%s}", expressionString);
-            transpiledResult =  mvelTranspiler.transpileStatement(expressionStringWithBraces);
-        } else {
-            //transpiledResult =  constraintTranspiler.compileExpression(expressionString);
-        }
+
+        String expressionStringWithBraces = String.format("{%s}", expressionString);
+        TranspiledResult transpiledResult =  mvelTranspiler.transpileStatement(expressionStringWithBraces);
 
         return transpiledResult;
-
     }
 
-    private static boolean isAStatement(String expressionString) {
-        boolean hasSemiColon = expressionString.contains(";");
-        List<String> statementOperators = Arrays.asList("+=", "-=", "/=", "*=");
-
-        for(String s :statementOperators) {
-            if(expressionString.contains(s)) {
-                return true;
-            }
-        }
-        return hasSemiColon;
-    }
-
-    public static TranspiledResult transpile(String expression, Set<String> imports, Map<String, Class> types) {
-        return transpile(expression, types, ctx -> {
+    public static TranspiledResult transpile(String expression, Set<String> imports, Map<String, Type> types) {
+        TranspiledResult result = transpile(expression, types, ctx -> {
             imports.stream().forEach(i -> ctx.addImport(i));
         });
+
+        result.getBlock();
+
+        return result;
     }
 
     public TranspiledBlockResult transpileStatement(String mvelBlock) {
@@ -114,17 +99,14 @@ public class MVELTranspiler {
         VariableAnalyser analyser = new VariableAnalyser(mvelTranspilerContext.getDeclarations().keySet());
         mvelExpression.accept(analyser, null);
 
-        analyser.getUsed().stream().forEach(v -> mvelTranspilerContext.addInput(v));
+        if (mvelTranspilerContext.getRootPrefix().isPresent()) {
+            analyser.getUsed().add(mvelTranspilerContext.getRootPrefix().get());
+        }
 
+        analyser.getUsed().stream().forEach(v -> mvelTranspilerContext.addInput(v));
 
         preprocessPhase.removeEmptyStmt(mvelExpression);
 
         return new TranspiledBlockResult(mvelExpression.getStatements(), mvelTranspilerContext);
-    }
-
-    private Stream<String> transformStatementWithPreprocessing(Statement s) {
-        PreprocessPhase.PreprocessPhaseResult invoke = preprocessPhase.invoke(s);
-        s.remove();
-        return invoke.getUsedBindings().stream();
     }
 }

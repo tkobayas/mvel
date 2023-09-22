@@ -16,13 +16,24 @@
 
 package org.mvel3.transpiler.context;
 
+import java.util.Objects;
+
 public class Declaration {
     private String name;
     private Class<?> clazz;
 
+    private String generics = "";
+
     public Declaration(String name, Class<?> clazz) {
         this.name = name;
         this.clazz = clazz;
+        this.generics = "";
+    }
+
+    public Declaration(String name, Class<?> clazz, String generics) {
+        this.name = name;
+        this.clazz = clazz;
+        this.generics = (generics != null) ? generics : "";
     }
 
     public String getName() {
@@ -33,11 +44,44 @@ public class Declaration {
         return clazz;
     }
 
+    public String getGenerics() {
+        return generics;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        Declaration that = (Declaration) o;
+
+        if (!name.equals(that.name)) {
+            return false;
+        }
+        if (!clazz.equals(that.clazz)) {
+            return false;
+        }
+        return Objects.equals(generics, that.generics);
+    }
+
+    @Override
+    public int hashCode() {
+        int result = name.hashCode();
+        result = 31 * result + clazz.hashCode();
+        result = 31 * result + (generics != null ? generics.hashCode() : 0);
+        return result;
+    }
+
     @Override
     public String toString() {
         return "Declaration{" +
-                "name='" + name + '\'' +
-                ", clazz=" + clazz +
-                '}';
+               "name='" + name + '\'' +
+               ", clazz=" + clazz +
+               ", annotations='" + generics + '\'' +
+               '}';
     }
 }

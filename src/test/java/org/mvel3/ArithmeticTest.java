@@ -28,8 +28,10 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.Deque;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 
 import static java.lang.System.currentTimeMillis;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -44,14 +46,28 @@ import static org.assertj.core.api.Assertions.within;
 
 public class ArithmeticTest {
 
+  public static Set<String> getImports() {
+
+    Set<String> imports = new HashSet<>();
+    imports.add("java.util.List");
+    imports.add("java.util.ArrayList");
+    imports.add("java.util.HashMap");
+    imports.add("java.util.Map");
+    imports.add("java.math.BigDecimal");
+    imports.add(org.mvel3.Address.class.getCanonicalName());
+    imports.add(Foo.class.getCanonicalName());
+
+    return imports;
+  }
+
   public static Object executeExpression(final String expression, final Map<String, Object> vars) {
     MVEL mvel = new MVEL();
-    return mvel.executeExpression(expression, vars);
+    return mvel.executeExpression(expression, getImports(),vars);
   }
 
   public static Object executeExpressionWithDefaultVariables(final String expression) {
     MVEL mvel = new MVEL();
-    return mvel.executeExpression(expression, createTestMap());
+    return mvel.executeExpression(expression, getImports(), createTestMap());
   }
 
 
@@ -676,12 +692,12 @@ public class ArithmeticTest {
 
   @Test
   public void testShiftRightAssign() {
-    assertThat(executeExpressionWithDefaultVariables("_zZz = 5; _zZz >>= 2")).isEqualTo(5 >> 2);
+    assertThat(executeExpressionWithDefaultVariables("var _zZz = 5; _zZz >>= 2;")).isEqualTo(5 >> 2);
   }
 
   @Test
   public void testShiftLeftAssign() {
-    assertThat(executeExpressionWithDefaultVariables("_yYy = 10; _yYy <<= 2")).isEqualTo(10 << 2);
+    assertThat(executeExpressionWithDefaultVariables("var _yYy = 10; _yYy <<= 2;")).isEqualTo(10 << 2);
   }
 
   @Ignore("DROOLS-6572 - Unable to parse")
@@ -749,37 +765,36 @@ public class ArithmeticTest {
   @Test
   public void testOperativeAssignMod() {
     int val = 5;
-    assertThat(executeExpressionWithDefaultVariables("int val = 5; val %= 2; val")).isEqualTo(val %= 2);
+    assertThat(executeExpressionWithDefaultVariables("int val = 5; val %= 2; return val;")).isEqualTo(val %= 2);
   }
 
   @Test
   public void testOperativeAssignDiv() {
     int val = 10;
-    assertThat(executeExpressionWithDefaultVariables("int val = 10; val /= 2; val")).isEqualTo(val /= 2);
+    assertThat(executeExpressionWithDefaultVariables("int val = 10; val /= 2; return val;")).isEqualTo(val /= 2);
   }
 
   @Test
   public void testOperativeAssignShift1() {
     int val = 5;
-    assertThat(executeExpressionWithDefaultVariables("int val = 5; val <<= 2; val")).isEqualTo(val <<= 2);
+    assertThat(executeExpressionWithDefaultVariables("int val = 5; val <<= 2; return val;")).isEqualTo(val <<= 2);
   }
 
   @Test
   public void testOperativeAssignShift2() {
     int val = 5;
-    assertThat(executeExpressionWithDefaultVariables("int val = 5; val >>= 2; val")).isEqualTo(val >>= 2);
+    assertThat(executeExpressionWithDefaultVariables("int val = 5; val >>= 2; return val;")).isEqualTo(val >>= 2);
   }
 
   @Test
   public void testOperativeAssignShift3() {
     int val = -5;
-    assertThat(executeExpressionWithDefaultVariables("int val = -5; val >>>= 2; val")).isEqualTo(val >>>= 2);
+    assertThat(executeExpressionWithDefaultVariables("int val = -5; val >>>= 2; return val;")).isEqualTo(val >>>= 2);
   }
 
-  @Ignore("DROOLS-6572 - Unable to parse")
   @Test
   public void testAssignPlus() {
-    assertThat(executeExpressionWithDefaultVariables("xx0 = 5; xx0 += 4; xx0 + 1")).isEqualTo(10);
+    assertThat(executeExpressionWithDefaultVariables("var xx0 = 5; xx0 += 4; return xx0 + 1;")).isEqualTo(10);
   }
 
   @Ignore("DROOLS-6572 - Unable to parse")
@@ -791,16 +806,17 @@ public class ArithmeticTest {
   @Ignore("DROOLS-6572 - Rounding error")
   @Test
   public void testAssignDiv() {
-    assertThat(executeExpressionWithDefaultVariables("xx0 = 20; xx0 /= 10; xx0")).isEqualTo(2.0);
+    assertThat(executeExpressionWithDefaultVariables("var xx0 = 20; xx0 /= 10; return xx0")).isEqualTo(2.0);
   }
 
+  @Test
   public void testAssignMult() {
-    assertThat(executeExpressionWithDefaultVariables("xx0 = 6; xx0 *= 6; xx0")).isEqualTo(36);
+    assertThat(executeExpressionWithDefaultVariables("var xx0 = 6; xx0 *= 6; return xx0;")).isEqualTo(36);
   }
 
   @Test
   public void testAssignSub() {
-    assertThat(executeExpressionWithDefaultVariables("xx0 = 15; xx0 -= 4; xx0")).isEqualTo(11);
+    assertThat(executeExpressionWithDefaultVariables("var xx0 = 15; xx0 -= 4; return xx0;")).isEqualTo(11);
   }
 
   @Ignore("DROOLS-6572 - Calculation error")
@@ -1154,7 +1170,7 @@ public class ArithmeticTest {
   
   @Test
   public void testBigDecimalAssignmentIncrement() {
-    String expression = "s1=0B;s1+=1;s1+=1;s1";
+    String expression = "var s1=0B;s1+=1;s1+=1; return s1;";
     BigDecimal result = new BigDecimal(2);
 
     assertThat(executeExpression(expression, new HashMap<>())).isEqualTo(result);
