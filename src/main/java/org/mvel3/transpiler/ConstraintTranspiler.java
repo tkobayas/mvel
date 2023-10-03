@@ -19,7 +19,7 @@ package org.mvel3.transpiler;
 import com.github.javaparser.ParseResult;
 import com.github.javaparser.ast.expr.Expression;
 import org.mvel3.transpiler.ast.TypedExpression;
-import org.mvel3.transpiler.context.MvelTranspilerContext;
+import org.mvel3.transpiler.context.TranspilerContext;
 
 /* A special case of compiler in that compiles constraints, that is
     every variable can be implicitly a field of the root object
@@ -28,9 +28,9 @@ import org.mvel3.transpiler.context.MvelTranspilerContext;
  */
 public class ConstraintTranspiler {
 
-    private final MvelTranspilerContext mvelTranspilerContext;
+    private final TranspilerContext mvelTranspilerContext;
 
-    public ConstraintTranspiler(MvelTranspilerContext mvelTranspilerContext) {
+    public ConstraintTranspiler(TranspilerContext mvelTranspilerContext) {
         this.mvelTranspilerContext = mvelTranspilerContext;
     }
 

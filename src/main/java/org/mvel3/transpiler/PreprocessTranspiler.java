@@ -16,22 +16,8 @@
 
 package org.mvel3.transpiler;
 
-import com.github.javaparser.ast.Node;
-import com.github.javaparser.ast.body.VariableDeclarator;
-import com.github.javaparser.ast.expr.MethodCallExpr;
-import com.github.javaparser.ast.expr.NameExpr;
-import com.github.javaparser.ast.expr.StringLiteralExpr;
-import com.github.javaparser.ast.expr.TextBlockLiteralExpr;
-import com.github.javaparser.ast.stmt.BlockStmt;
-import org.mvel3.parser.StaticMvelParser;
-import org.mvel3.parser.ast.expr.ModifyStatement;
-import org.mvel3.transpiler.context.MvelTranspilerContext;
-import org.mvel3.util.ClassTypeResolver;
-import org.mvel3.util.TypeResolver;
+import org.mvel3.transpiler.context.TranspilerContext;
 
-import java.util.HashSet;
-import java.util.Optional;
-import java.util.Set;
 import java.util.function.Consumer;
 
 import static com.github.javaparser.ast.NodeList.nodeList;
@@ -43,7 +29,7 @@ public class PreprocessTranspiler {
 
     private static final PreprocessPhase preprocessPhase = new PreprocessPhase();
 
-    public TranspiledBlockResult compile(String mvelBlock, Consumer<MvelTranspilerContext> updateContextFunc) {
+    public TranspiledBlockResult compile(String mvelBlock, Consumer<TranspilerContext> updateContextFunc) {
 //        Set<String> imports = new HashSet<>();
 //        imports.add("java.util.List");
 //        imports.add("java.util.ArrayList");

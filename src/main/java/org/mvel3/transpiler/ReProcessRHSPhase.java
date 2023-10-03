@@ -25,12 +25,11 @@ import com.github.javaparser.ast.expr.UnaryExpr;
 import org.mvel3.parser.ast.visitor.DrlGenericVisitorWithDefaults;
 import org.mvel3.transpiler.ReProcessRHSPhase.Context;
 import org.mvel3.transpiler.ast.TypedExpression;
-import org.mvel3.parser.ast.visitor.DrlGenericVisitor;
 import org.mvel3.transpiler.ast.BigDecimalConvertedExprT;
 import org.mvel3.transpiler.ast.IntegerLiteralExpressionT;
 import org.mvel3.transpiler.ast.LongLiteralExpressionT;
 import org.mvel3.transpiler.ast.UnalteredTypedExpression;
-import org.mvel3.transpiler.context.MvelTranspilerContext;
+import org.mvel3.transpiler.context.TranspilerContext;
 
 import java.math.BigDecimal;
 import java.util.Optional;
@@ -42,7 +41,7 @@ import java.util.function.Supplier;
 public class ReProcessRHSPhase extends DrlGenericVisitorWithDefaults<Optional<TypedExpression>, Context> {
 
     private TypedExpression lhs;
-    private MvelTranspilerContext mvelTranspilerContext;
+    private TranspilerContext mvelTranspilerContext;
 
     static class Context {
         private UnaryExpr unaryExpr;
@@ -57,7 +56,7 @@ public class ReProcessRHSPhase extends DrlGenericVisitorWithDefaults<Optional<Ty
         }
     }
 
-    ReProcessRHSPhase(MvelTranspilerContext mvelTranspilerContext) {
+    ReProcessRHSPhase(TranspilerContext mvelTranspilerContext) {
         this.mvelTranspilerContext = mvelTranspilerContext;
     }
 

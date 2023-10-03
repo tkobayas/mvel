@@ -18,7 +18,7 @@ package org.mvel3;
 
 import org.mvel3.transpiler.MVELTranspiler;
 import org.mvel3.transpiler.TranspiledResult;
-import org.mvel3.transpiler.context.MvelTranspilerContext;
+import org.mvel3.transpiler.context.TranspilerContext;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -29,13 +29,13 @@ import java.util.function.Consumer;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-interface TranspilerTest {
+public interface TranspilerTest {
 
-    default void test(Consumer<MvelTranspilerContext> contextUpdater,
+    default void test(Consumer<TranspilerContext> contextUpdater,
                       String inputExpression,
                       String expectedResult,
                       Consumer<TranspiledResult> resultAssert) {
-        Consumer<MvelTranspilerContext> outerContextUpdater = ctx -> {
+        Consumer<TranspilerContext> outerContextUpdater = ctx -> {
             contextUpdater.accept(ctx);
 
             ctx.addImport(java.util.List.class.getCanonicalName());
@@ -70,7 +70,7 @@ interface TranspilerTest {
         }, inputExpression, expectedResult, resultAssert);
     }
 
-    default void test(Consumer<MvelTranspilerContext> testFunction,
+    default void test(Consumer<TranspilerContext> testFunction,
                       String inputExpression,
                       String expectedResult) {
         test(testFunction, inputExpression, expectedResult, t -> {

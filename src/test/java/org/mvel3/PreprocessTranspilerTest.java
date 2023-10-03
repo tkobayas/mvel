@@ -19,7 +19,7 @@ package org.mvel3;
 import org.mvel3.transpiler.TranspiledBlockResult;
 import org.mvel3.transpiler.PreprocessTranspiler;
 import org.mvel3.transpiler.TranspiledResult;
-import org.mvel3.transpiler.context.MvelTranspilerContext;
+import org.mvel3.transpiler.context.TranspilerContext;
 import org.junit.Test;
 
 import java.util.function.Consumer;
@@ -111,7 +111,7 @@ public class PreprocessTranspilerTest implements TranspilerTest {
     }
 
     @Override
-    public void test(Consumer<MvelTranspilerContext> updateContextFunc,
+    public void test(Consumer<TranspilerContext> updateContextFunc,
                       String inputExpression,
                       String expectedResult,
                       Consumer<TranspiledResult> resultAssert) {

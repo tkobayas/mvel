@@ -1,7 +1,8 @@
 package org.mvel3;
 
 import org.junit.Test;
-import org.mvel2.ParserContext;
+import org.mvel2.EvaluatorConfig.ContextObjectValues;
+import org.mvel2.EvaluatorConfig.ContextObjectValuesBuilder;
 import org.mvel3.MVEL.Type;
 import org.mvel3.transpiler.context.Declaration;
 
@@ -291,9 +292,16 @@ public class MVELCompilerTest {
         Bar bar = new Bar();
         bar.setName("yyy");
 
+        ContextObjectValues evalValues = ContextObjectValuesBuilder.create()
+                                                                   .imports(getImports())
+                                                                   .expression("foo.getName() + bar.getName()")
+                                                                   .contextClass(ContextCamelCase.class)
+                                                                   .vars("foo", "bar")
+                                                                   .outClass(String.class)
+                                                                   .build();
+
         MVEL mvel = new MVEL();
-        PojoEvaluator<ContextCamelCase, String> evaluator = mvel.compilePojoEvaluator("foo.getName() + bar.getName()", getImports(),
-                                                                                       ContextCamelCase.class, String.class, new String[] {"foo", "bar"});
+        PojoEvaluator<ContextCamelCase, String> evaluator = mvel.compilePojoEvaluator(evalValues);
 
         ContextCamelCase context = new ContextCamelCase(foo, bar);
         assertThat(evaluator.eval(context)).isEqualTo("xxxyyy");
@@ -307,12 +315,24 @@ public class MVELCompilerTest {
         Bar bar = new Bar();
         bar.setName("yyy");
 
+        ContextObjectValues evalValues = ContextObjectValuesBuilder.create()
+                                                                   .expression("foo.getName() + bar.getName()")
+                                                                   .contextClass(ContextRecord.class)
+                                                                   .imports(getImports())
+                                                                   .vars("foo", "bar")
+                                                                   .outClass(String.class)
+                                                                   .build();
+
         MVEL mvel = new MVEL();
-        PojoEvaluator<ContextRecord, String> evaluator = mvel.compilePojoEvaluator("foo.getName() + bar.getName()", getImports(),
-                                                                                   ContextRecord.class, String.class, new String[] {"foo", "bar"});
+        PojoEvaluator<ContextRecord, String> evaluator = mvel.compilePojoEvaluator(evalValues);
 
         ContextRecord context = new ContextRecord(foo, bar);
         assertThat(evaluator.eval(context)).isEqualTo("xxxyyy");
+    }
+
+    public String x() {
+        Foo[] foos = new Foo[] { };
+        return foos[0].getName() + foos[1].getName();
     }
 
     @Test
@@ -323,9 +343,18 @@ public class MVELCompilerTest {
         Foo foo2 = new Foo();
         foo2.setName("foo2");
 
+
+
+        ContextObjectValues evalValues = ContextObjectValuesBuilder.create()
+                                                                   .expression("foos[0].name + foos[1].name")
+                                                                   .contextClass(ContextRecord.class)
+                                                                   .imports(getImports())
+                                                                   .vars("foos")
+                                                                   .outClass(String.class)
+                                                                   .build();
+
         MVEL mvel = new MVEL();
-        PojoEvaluator<ContextRecord, String> evaluator = mvel.compilePojoEvaluator("foos[0].name + foos[1].name", getImports(),
-                                                                                   ContextRecord.class, String.class, "foos");
+        PojoEvaluator<ContextRecord, String> evaluator = mvel.compilePojoEvaluator(evalValues);
 
         ContextRecord context = new ContextRecord(null, null, foo1, foo2);
         assertThat(evaluator.eval(context)).isEqualTo("foo1foo2");
@@ -339,9 +368,16 @@ public class MVELCompilerTest {
         Bar bar = new Bar();
         bar.setName("yyy");
 
+        ContextObjectValues evalValues = ContextObjectValuesBuilder.create()
+                                                                   .imports(getImports())
+                                                                   .expression("foo.getName() + bar.getName()")
+                                                                   .contextClass(ContextMixed.class)
+                                                                   .vars("foo", "bar")
+                                                                   .outClass(String.class)
+                                                                   .build();
+
         MVEL mvel = new MVEL();
-        PojoEvaluator<ContextMixed, String> evaluator = mvel.compilePojoEvaluator("foo.getName() + bar.getName()", getImports(),
-                                                                                    ContextMixed.class, String.class, "foo", "bar");
+        PojoEvaluator<ContextMixed, String> evaluator = mvel.compilePojoEvaluator(evalValues);
 
         ContextMixed context = new ContextMixed(foo, bar);
         assertThat(evaluator.eval(context)).isEqualTo("xxxyyy");

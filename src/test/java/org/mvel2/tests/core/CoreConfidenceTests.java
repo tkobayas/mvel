@@ -1303,7 +1303,6 @@ public class CoreConfidenceTests extends AbstractTest {
         vectorB);
 
     testCompiledSimple("vecB.add(vecA.remove(0)); vecA.add('Foo244');",
-        null,
         map);
 
     assertEquals("Foo244",

@@ -35,6 +35,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -270,10 +271,12 @@ public abstract class AbstractTest extends TestCase {
   }
 
   protected static Object testCompiledSimple(String ex, Map map) {
-    return MVEL.executeExpression(MVEL.compileExpression(ex), map);
+    String actualExpr = "{ return " + ex + ";}";
+    return org.mvel3.MVEL.get().executeExpression(actualExpr, Collections.emptySet(), (Map<String, Object>) map);
   }
 
   protected static Object testCompiledSimple(String ex, Object base, Map map) {
+    //org.mvel3.MVEL.get().compilePojoEvaluator(ex, Collections.emptySet(), base.getClass(), Collections.emptySet(), Object.class);
     return MVEL.executeExpression(MVEL.compileExpression(ex), base, map);
   }
 

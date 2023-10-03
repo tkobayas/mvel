@@ -77,9 +77,9 @@ public class DrlVoidVisitorAdapter<A> extends VoidVisitorAdapter<A> implements D
     }
 
     public void visit(FullyQualifiedInlineCastExpr n, A arg) {
-        n.getName().accept(this, arg);
-        n.getArguments().accept(this, arg);
-        n.getScope().accept(this, arg);
+//        n.getType().accept(this, arg);
+//        n.getArguments().accept(this, arg);
+//        n.getExpression().accept(this, arg);
     }
 
     public void visit(NullSafeFieldAccessExpr n, A arg) {

@@ -1,11 +1,13 @@
 package org.mvel2.tests.core;
 
+import org.mvel2.EvaluatorConfig.RootObjectConfigBuilder;
 import org.mvel2.MVEL;
 import org.mvel2.ParserConfiguration;
 import org.mvel2.ParserContext;
 import org.mvel2.compiler.ExecutableStatement;
 import org.mvel2.tests.core.res.Base;
 import org.mvel2.tests.core.res.Foo;
+import org.mvel3.TranspilerTest;
 
 import java.util.*;
 import java.io.Serializable;
@@ -348,21 +350,38 @@ public class ControlFlowTests extends AbstractTest {
    */
   @SuppressWarnings({"unchecked"})
   public void testCalculateAge() {
+
     Calendar c1 = Calendar.getInstance();
-    c1.set(1999,
-        0,
-        10); // 1999 jan 20
-    Map objectMap = new HashMap(1);
-    Map propertyMap = new HashMap(1);
-    propertyMap.put("GEBDAT",
-        c1.getTime());
-    objectMap.put("EV_VI_ANT1",
-        propertyMap);
-    assertEquals("N",
-        testCompiledSimple(
-            "new org.mvel2.tests.core.res.PDFFieldUtil().calculateAge(EV_VI_ANT1.GEBDAT) >= 25 ? 'Y' : 'N'",
-            null,
-            objectMap));
+    c1.set(1999, 0, 10); // 1999 jan 20
+    Map<String, Map<String, Date>> objectMap = new HashMap<>(1);
+    Map<String, Date> propertyMap = new HashMap<>(1);
+    propertyMap.put("GEBDAT", c1.getTime());
+    objectMap.put("EV_VI_ANT1", propertyMap);
+
+    //objectMap.get("EV_VI_ANT1").get("GEBDAT").getTime()
+
+    TranspilerTest tester = new TranspilerTest() {};
+    tester.test(ctx -> {
+          ctx.addImport("java.util.Date");
+          ctx.setRootObject(Map.class,"<String, Map<String, Date>>", "__this");
+        },
+        "{ return new org.mvel2.tests.core.res.PDFFieldUtil().calculateAge(EV_VI_ANT1.GEBDAT) >= 25 ? 'Y' : 'N';}",
+        "{ return new org.mvel2.tests.core.res.PDFFieldUtil().calculateAge(__this.get(\"EV_VI_ANT1\").get(\"GEBDAT\"))>= 25 ? 'Y' : 'N';}\n"
+        );
+
+
+    RootObjectConfigBuilder.create()
+                           .root(Map.class, "<String, Map<String, Date>>")
+                           .outClass(char.class);
+
+    //return org.mvel3.MVEL.get().executeExpression(actualExpr, Collections.emptySet(), (Map<String, Object>) map);
+//
+//
+//    assertEquals('N',
+//        testCompiledSimple(
+//                "new org.mvel2.tests.core.res.PDFFieldUtil().calculateAge(EV_VI_ANT1.GEBDAT) >= 25 ? 'Y' : 'N'",
+//            //"new org.mvel2.tests.core.res.PDFFieldUtil().calculateAge((java.util.Date)EV_VI_ANT1[\"GEBDAT\"]) >= 25 ? 'Y' : 'N'",
+//            objectMap));
   }
 
   public void testSubEvaluation() {
@@ -374,14 +393,12 @@ public class ControlFlowTests extends AbstractTest {
 
     assertEquals("12345",
         testCompiledSimple("EV_BER_BER_NR + ((EV_BER_BER_PRIV != empty && EV_BER_BER_PRIV == true) ? \"/PRIVAT\" : '')",
-            null,
             map));
 
     map.put("EV_BER_BER_PRIV",
         Boolean.TRUE);
     assertEquals("12345/PRIVAT",
         testCompiledSimple("EV_BER_BER_NR + ((EV_BER_BER_PRIV != empty && EV_BER_BER_PRIV == true) ? \"/PRIVAT\" : '')",
-            null,
             map));
   }
 

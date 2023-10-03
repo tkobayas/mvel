@@ -16,19 +16,17 @@
 
 package org.mvel3.transpiler;
 
-import com.github.javaparser.ParseResult;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.ImportDeclaration;
 import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.FieldDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
-import com.github.javaparser.ast.expr.AnnotationExpr;
 import com.github.javaparser.ast.stmt.BlockStmt;
 import com.github.javaparser.ast.stmt.Statement;
 import org.mvel3.parser.printer.MVELToJavaRewriter;
 import org.mvel3.transpiler.context.Declaration;
-import org.mvel3.transpiler.context.MvelTranspilerContext;
+import org.mvel3.transpiler.context.TranspilerContext;
 
 import java.util.List;
 import java.util.Set;
@@ -42,9 +40,9 @@ public class TranspiledBlockResult implements TranspiledResult {
     private BlockStmt rewrittenStmt;
     private NodeList<ImportDeclaration> imports;
 
-    private MvelTranspilerContext context;
+    private TranspilerContext context;
 
-    public TranspiledBlockResult(List<Statement> statements, MvelTranspilerContext context) {
+    public TranspiledBlockResult(List<Statement> statements, TranspilerContext context) {
         this.statements = statements;
         this.context = context;
     }
@@ -65,6 +63,7 @@ public class TranspiledBlockResult implements TranspiledResult {
         if (rewrittenStmt == null) {
 
             CompilationUnit unit = new CompilationUnit();
+            context.setUnit(unit);
 
             context.getImports().stream().forEach(s -> unit.addImport(s));
             context.getStaticImports().stream().forEach(s -> unit.addImport(s, true, false));
@@ -75,17 +74,7 @@ public class TranspiledBlockResult implements TranspiledResult {
 
             context.getInputs().stream().forEach(var -> {
                 Declaration declr = context.getDeclarations().get(var);
-                FieldDeclaration f = cls.addPrivateField(declr.getClazz().getCanonicalName() + declr.getGenerics(), var);
-                System.out.println(f);
-//                if (declr.getGenerics() != null) {
-//                    ParseResult<AnnotationExpr> result = context.getParser().parseAnnotation(declr.getGenerics());
-//                    if (result.isSuccessful()) {
-//                        AnnotationExpr expr = result.getResult().get();
-//                        f.setAnnotations(NodeList.nodeList(expr));
-//                    } else {
-//                        throw new RuntimeException("Unable to parser annotation expression '" + declr.getGenerics() + "' for input var: '" + var + "'");
-//                    }
-//                }
+                cls.addPrivateField(declr.getClazz().getCanonicalName() + declr.getGenerics(), var);
             });
 
             MethodDeclaration method = cls.addMethod("dummyMethod");
@@ -115,6 +104,10 @@ public class TranspiledBlockResult implements TranspiledResult {
     @Override
     public Set<String> getInputs() {
         return context.getInputs();
+    }
+
+    public TranspilerContext getTranspilerContext() {
+        return context;
     }
 
     @Override

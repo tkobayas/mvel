@@ -27,7 +27,6 @@ import com.github.javaparser.ast.expr.FieldAccessExpr;
 import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.ast.expr.VariableDeclarationExpr;
 import com.github.javaparser.ast.stmt.ExpressionStmt;
-import com.github.javaparser.ast.type.ClassOrInterfaceType;
 import org.mvel3.parser.ast.expr.DrlNameExpr;
 import org.mvel3.parser.ast.visitor.DrlGenericVisitorWithDefaults;
 import org.mvel3.transpiler.ast.AssignExprT;
@@ -43,7 +42,7 @@ import org.mvel3.transpiler.ast.TypedExpression;
 import org.mvel3.transpiler.ast.UnalteredTypedExpression;
 import org.mvel3.transpiler.ast.VariableDeclaratorTExpr;
 import org.mvel3.transpiler.context.Declaration;
-import org.mvel3.transpiler.context.MvelTranspilerContext;
+import org.mvel3.transpiler.context.TranspilerContext;
 import org.mvel3.util.ClassUtils;
 //import org.slf4j.Logger;
 //import org.slf4j.LoggerFactory;
@@ -83,10 +82,10 @@ public class LHSPhase extends DrlGenericVisitorWithDefaults<TypedExpression, Voi
 
     //private Logger logger = LoggerFactory.getLogger(LHSPhase.class);
 
-    private final MvelTranspilerContext mvelTranspilerContext;
+    private final TranspilerContext mvelTranspilerContext;
     private final Optional<TypedExpression> rhs;
 
-    public LHSPhase(MvelTranspilerContext mvelTranspilerContext, Optional<TypedExpression> rhs) {
+    public LHSPhase(TranspilerContext mvelTranspilerContext, Optional<TypedExpression> rhs) {
         this.mvelTranspilerContext = mvelTranspilerContext;
         this.rhs = rhs;
     }

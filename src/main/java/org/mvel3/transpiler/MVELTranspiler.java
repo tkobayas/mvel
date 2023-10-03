@@ -24,7 +24,7 @@ import com.github.javaparser.symbolsolver.JavaSymbolSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver;
 import org.mvel3.MVEL.Type;
 import org.mvel3.parser.MvelParser;
-import org.mvel3.transpiler.context.MvelTranspilerContext;
+import org.mvel3.transpiler.context.TranspilerContext;
 
 import java.util.Map;
 import java.util.Set;
@@ -36,13 +36,13 @@ public class MVELTranspiler {
 
     private final PreprocessPhase preprocessPhase = new PreprocessPhase();
 
-    private MvelTranspilerContext mvelTranspilerContext;
+    private TranspilerContext mvelTranspilerContext;
 
-    public MVELTranspiler(MvelTranspilerContext mvelTranspilerContext) {
+    public MVELTranspiler(TranspilerContext mvelTranspilerContext) {
         this.mvelTranspilerContext = mvelTranspilerContext;
     }
 
-    public static TranspiledResult transpile(Object expression, Map<String, Type> types, Consumer<MvelTranspilerContext> contextUpdates) {
+    public static TranspiledResult transpile(Object expression, Map<String, Type> types, Consumer<TranspilerContext> contextUpdates) {
         String expressionString = expression.toString();
 
         TypeSolver typeSolver = new ReflectionTypeSolver(false);
@@ -54,7 +54,9 @@ public class MVELTranspiler {
 
         MvelParser parser = new MvelParser(conf);
 
-        MvelTranspilerContext context = new MvelTranspilerContext(parser, typeSolver);
+        TranspilerContext context = new TranspilerContext(parser, typeSolver);
+
+
 
         //  Some code provides var types via the contextUpdater and others via a list
         if (contextUpdates != null) {
@@ -65,8 +67,8 @@ public class MVELTranspiler {
             context.addDeclaration(o.getKey(), o.getValue().getClazz(), o.getValue().getGenerics());
         }
 
-        if (context.getRootPattern().isPresent()) {
-            context.addDeclaration("_this", context.getRootPattern().get());
+        if (context.getRootObject().isPresent()) {
+            context.addDeclaration(context.getRootPrefix().get(), context.getRootObject().get(), context.getRootGenerics().get());
         }
 
 
@@ -90,6 +92,7 @@ public class MVELTranspiler {
     }
 
     public TranspiledBlockResult transpileStatement(String mvelBlock) {
+        System.out.println(mvelBlock);
         ParseResult<BlockStmt> result = mvelTranspilerContext.getParser().parseBlock(mvelBlock);
         if (!result.isSuccessful()) {
             throw new RuntimeException(result.getProblems().toString());

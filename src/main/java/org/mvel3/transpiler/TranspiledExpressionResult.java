@@ -21,6 +21,7 @@ import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.expr.Expression;
 import com.github.javaparser.ast.stmt.BlockStmt;
 import com.github.javaparser.ast.stmt.ExpressionStmt;
+import org.mvel3.transpiler.context.TranspilerContext;
 
 import java.lang.reflect.Type;
 import java.util.HashSet;
@@ -66,6 +67,11 @@ public class TranspiledExpressionResult implements TranspiledResult {
     @Override
     public void rewriteBlock() {
 
+    }
+
+    @Override
+    public TranspilerContext getTranspilerContext() {
+        return null;
     }
 
     @Override

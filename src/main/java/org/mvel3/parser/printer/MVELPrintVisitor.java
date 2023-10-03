@@ -220,15 +220,15 @@ public class MVELPrintVisitor extends DefaultPrettyPrinterVisitor implements Drl
 
     @Override
     public void visit( FullyQualifiedInlineCastExpr inlineCastExpr, Void arg ) {
-        printComment(inlineCastExpr.getComment(), arg);
-        inlineCastExpr.getScope().accept( this, arg );
-        printer.print( "#" );
-        inlineCastExpr.getName().accept( this, arg );
-        if (inlineCastExpr.hasArguments()) {
-            printer.print( "(" );
-            inlineCastExpr.getArguments().accept( this, arg );
-            printer.print( ")" );
-        }
+//        printComment(inlineCastExpr.getComment(), arg);
+//        inlineCastExpr.getExpression().accept(this, arg);
+//        printer.print( "#" );
+//        inlineCastExpr.getType().accept(this, arg);
+//        if (inlineCastExpr.hasArguments()) {
+//            printer.print( "(" );
+//            inlineCastExpr.getArguments().accept( this, arg );
+//            printer.print( ")" );
+//        }
     }
 
     @Override

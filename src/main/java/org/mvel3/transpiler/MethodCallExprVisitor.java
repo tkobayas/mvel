@@ -23,28 +23,19 @@ import org.mvel3.parser.ast.visitor.DrlGenericVisitorWithDefaults;
 import org.mvel3.transpiler.RHSPhase.Context;
 import org.mvel3.transpiler.ast.MethodCallExprT;
 import org.mvel3.transpiler.ast.TypedExpression;
-import org.mvel3.transpiler.context.MvelTranspilerContext;
-import org.mvel3.parser.ast.visitor.DrlGenericVisitor;
-import org.mvel3.transpiler.context.DeclaredFunction;
+import org.mvel3.transpiler.context.TranspilerContext;
 import org.mvel3.util.ClassUtils;
-import org.mvel3.util.MethodUtils;
 
-import java.lang.reflect.Method;
-import java.lang.reflect.Type;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
-
-import static org.mvel3.util.StreamUtils.optionalToStream;
 
 public class MethodCallExprVisitor extends DrlGenericVisitorWithDefaults<TypedExpression, Context> {
 
     final RHSPhase parentVisitor;
-    final MvelTranspilerContext mvelTranspilerContext;
+    final TranspilerContext mvelTranspilerContext;
 
-    public MethodCallExprVisitor(RHSPhase parentVisitor, MvelTranspilerContext mvelTranspilerContext) {
+    public MethodCallExprVisitor(RHSPhase parentVisitor, TranspilerContext mvelTranspilerContext) {
         this.parentVisitor = parentVisitor;
         this.mvelTranspilerContext = mvelTranspilerContext;
     }

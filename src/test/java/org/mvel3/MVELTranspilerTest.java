@@ -16,50 +16,37 @@
 
 package org.mvel3;
 
-import com.github.javaparser.JavaParser;
-import com.github.javaparser.ParseResult;
-import com.github.javaparser.ParserConfiguration;
-import com.github.javaparser.ast.CompilationUnit;
-import com.github.javaparser.ast.Node;
-import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
-import com.github.javaparser.ast.body.MethodDeclaration;
-import com.github.javaparser.ast.body.VariableDeclarator;
-import com.github.javaparser.ast.expr.FieldAccessExpr;
-import com.github.javaparser.ast.expr.MethodCallExpr;
-import com.github.javaparser.ast.stmt.BlockStmt;
-import com.github.javaparser.ast.stmt.Statement;
-import com.github.javaparser.resolution.TypeSolver;
-import com.github.javaparser.resolution.types.ResolvedType;
-import com.github.javaparser.symbolsolver.JavaSymbolSolver;
-import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
-import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver;
+import com.github.javaparser.ast.type.PrimitiveType.Primitive;
 import org.junit.Ignore;
-import org.mvel3.util.MethodUtils;
 import org.junit.Test;
+import org.mvel3.parser.printer.CoerceRewriter;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import static com.github.javaparser.ParserConfiguration.LanguageLevel.JAVA_11;
 import static com.github.javaparser.Providers.provider;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class MVELTranspilerTest implements TranspilerTest {
 
-    @Test
-    public void test1() {
-        try {
-            java.lang.reflect.Method method = MVELTranspilerTest.class.getMethod("getX");
-            System.out.println(method.getGenericReturnType().getTypeName());
-        } catch (NoSuchMethodException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
     public List<String> getX() {
         return null;
+    }
+
+    @Test
+    public void test1() {
+        test(ctx -> ctx.addDeclaration("l", List.class),
+             "{ List<Map<String, Map<String, Object>>> l = new ArrayList(); } ",
+             "{ List<Map<String, Map<String, Object>>> l = new ArrayList(); }");
+    }
+
+    @Test
+    public void test2() {
+        test(ctx -> ctx.addDeclaration("l", List.class),
+             "{ ((java.util.List)o).get(0); } ",
+             "{ ((java.util.List)o).get(0); }");
     }
 
     @Test
@@ -69,6 +56,51 @@ public class MVELTranspilerTest implements TranspilerTest {
              "{ i += 10; }");
     }
 
+    @Test
+    public void testInlineCast1() {
+        //new java.util.Date(100)
+        ArrayList l = new ArrayList();
+
+        test(ctx -> ctx.addDeclaration("l", List.class),
+             "{ l#ArrayList#removeRange(0, 10); } ",
+             //"{ return l[0]; } ",
+             "{ ((ArrayList)l).removeRange(0, 10); }");
+    }
+
+    @Test
+    public void testInlineCast2() {
+        test(ctx -> ctx.addDeclaration("l", List.class),
+             "{ l#java.util.ArrayList#removeRange(0, 10); } ",
+             "{ ((java.util.ArrayList)l).removeRange(0, 10); }");
+    }
+
+    @Test
+    public void testInlineCast3() {
+        test(ctx -> ctx.addDeclaration("l", List.class),
+             "{ l#ArrayList#[0]; } ",
+             "{ ((ArrayList)l).get(0); }");
+    }
+
+    @Test
+    public void testInlineCoercion4() {
+        test(ctx -> {
+                ctx.addDeclaration("l", Long.class);
+                ctx.addImport(java.util.Date.class.getCanonicalName());
+             },
+             "{ var x = l#Date#; } ",
+             "{ var x = new java.util.Date(l); }");
+    }
+
+    @Test
+    public void testInlineCoercion5() {
+        test(ctx -> {
+                 ctx.addDeclaration("l", Long.class);
+                 ctx.addImport(java.util.Date.class.getCanonicalName());
+             },
+             "{ var x = l#Date#getTime(); } ",
+             "{ var x = new java.util.Date(l).getTime(); }");
+    }
+
 
     @Test
     public void testAssignmentIncrementInFieldWithPrimitive() {
@@ -76,6 +108,7 @@ public class MVELTranspilerTest implements TranspilerTest {
              "{ p.age += 10; } ",
              "{ p.setAge(p.getAge() + 10); }");
     }
+
 
     @Test
     public void testConvertPropertyToAccessor() {
@@ -111,6 +144,14 @@ public class MVELTranspilerTest implements TranspilerTest {
     }
 
     @Test
+    public void testX() {
+        // The city rewrite wouldn't work, if it didn't know the generics
+        test(ctx -> ctx.addDeclaration("$p", Person.class),
+             "{ return $p.addresses[0].city + $p.addresses[1].city;}",
+             "{ return $p.getAddresses().get(0).getCity() + $p.getAddresses().get(1).getCity();}");
+    }
+
+    @Test
     public void testConvertIfConditionAndStatements() {
         String expectedJavaCode =  "{\n if ($p.getAddresses() != null) {\n" +
                 "  results.add($p.getName());\n" +
@@ -125,6 +166,42 @@ public class MVELTranspilerTest implements TranspilerTest {
                      "  results.add($p.age);" +
                      "} }",
              expectedJavaCode);
+    }
+
+    @Test
+    public void testPrimitiveWithBigDecimal() {
+        for(Primitive p : CoerceRewriter.floatPrimitives) {
+            test(ctx -> {},
+                 "{ var x = 10B * " + p.toBoxedType() + ".MAX_VALUE;}",
+                 "{ var x = new java.math.BigDecimal(\"10\").multiply( BigDecimal.valueOf(" + p.toBoxedType() + ".MAX_VALUE), java.math.MathContext.DECIMAL128);}");
+        }
+    }
+
+    @Test
+    public void testBoxTypeWithBigDecimal() {
+        for(Primitive p : CoerceRewriter.floatPrimitives) {
+            test(ctx -> {},
+                 "{ var x = 10B * " + p.toBoxedType() + ".valueOf(" + p.toBoxedType() + ".MAX_VALUE);}",
+                 "{ var x = new java.math.BigDecimal(\"10\").multiply( BigDecimal.valueOf(" + p.toBoxedType() + ".valueOf(" + p.toBoxedType() + ".MAX_VALUE))), java.math.MathContext.DECIMAL128);}");
+        }
+    }
+
+    @Test
+    public void testBoxTypeWithBigInteger() {
+        for(Primitive p : CoerceRewriter.integerPrimitives) {
+            test(ctx -> {},
+                 "{ var x = 10I * " + p.toBoxedType() + ".valueOf(" + p.toBoxedType() + ".MAX_VALUE);}",
+                 "{ var x = new java.math.BigInteger(\"10\").multiply( BigInteger.valueOf(" + p.toBoxedType() + ".valueOf(" + p.toBoxedType() + ".MAX_VALUE)));}");
+        }
+    }
+
+    @Test
+    public void testPrimitiveWithBigInteger() {
+        for(Primitive p : CoerceRewriter.integerPrimitives) {
+            test(ctx -> {},
+                 "{ var x = 10I * " + p.toBoxedType() + ".MAX_VALUE;}",
+                 "{ var x = new java.math.BigInteger(\"10\").multiply( BigInteger.valueOf(" + p.toBoxedType() + ".MAX_VALUE));}");
+        }
     }
 
     @Test // I changed this, to avoid implicit narrowing (mdp)

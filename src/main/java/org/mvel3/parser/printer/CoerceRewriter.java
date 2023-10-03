@@ -1,15 +1,20 @@
 package org.mvel3.parser.printer;
 
+import com.github.javaparser.ParseResult;
 import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.expr.Expression;
 import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.ast.expr.NameExpr;
+import com.github.javaparser.ast.expr.ObjectCreationExpr;
+import com.github.javaparser.ast.type.ClassOrInterfaceType;
 import com.github.javaparser.ast.type.PrimitiveType.Primitive;
 import com.github.javaparser.resolution.types.ResolvedType;
+import org.mvel3.transpiler.context.TranspilerContext;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -22,20 +27,27 @@ public class CoerceRewriter {
 
     private Map<CoercionKey, Function<Expression, Expression>> coercions = new HashMap<>();
 
+    public static final Primitive[] integerPrimitives = new Primitive[] { Primitive.CHAR,
+                                                                          Primitive.SHORT,
+                                                                          Primitive.INT,
+                                                                          Primitive.LONG};
 
-    private static String[] integerPrimitives = new String[] { Primitive.CHAR.toDescriptor(),
-                                                               Primitive.SHORT.toDescriptor(),
-                                                               Primitive.INT.toDescriptor(),
-                                                               Primitive.LONG.toDescriptor()};
+    public static final Primitive[] floatPrimitives = new Primitive[] { Primitive.CHAR,
+                                                                        Primitive.SHORT,
+                                                                        Primitive.INT,
+                                                                        Primitive.LONG,
+                                                                        Primitive.FLOAT,
+                                                                        Primitive.DOUBLE};
+    TranspilerContext transpilerContext;
 
-    private static String[] floatPrimitives = new String[] { Primitive.CHAR.toDescriptor(),
-                                                             Primitive.SHORT.toDescriptor(),
-                                                             Primitive.INT.toDescriptor(),
-                                                             Primitive.LONG.toDescriptor(),
-                                                             Primitive.FLOAT.toDescriptor(),
-                                                             Primitive.DOUBLE.toDescriptor()};
+    public CoerceRewriter(TranspilerContext transpilerContext) {
+        this.transpilerContext = transpilerContext;
+        bigDecimalCoercion();
+        bigIntegerCoercion();
+        dateCoercion();
+    }
 
-    public void populate() {
+    public void bigDecimalCoercion() {
         Function<Expression, Expression> toBigDecimal = new Function<>() {
             @Override
             public Expression apply(Expression e) {
@@ -47,12 +59,15 @@ public class CoerceRewriter {
             }
         };
 
-        String bigDecimal = String.format("L%s;", BigDecimal.class.getCanonicalName().replace(".", "/"));
+        String bigDecimal = toObjectDescriptor(BigDecimal.class.getCanonicalName().replace(".", "/"));
 
+        Arrays.stream(floatPrimitives).forEach(p -> {
+            coercions.put(key(p.toDescriptor(), bigDecimal), toBigDecimal);
+            coercions.put(key("Ljava/lang/" + p.toBoxedType() + ";", bigDecimal), toBigDecimal);
+        });
+    }
 
-        Arrays.stream(floatPrimitives).forEach(s -> coercions.put(key(s, bigDecimal),
-                                                                  toBigDecimal));
-
+    public void bigIntegerCoercion() {
         Function<Expression, Expression> toBigInteger = new Function<>() {
             @Override
             public Expression apply(Expression e) {
@@ -64,40 +79,51 @@ public class CoerceRewriter {
             }
         };
 
-        String bigInteger = String.format("L%s;", BigInteger.class.getCanonicalName().replace(".", "/"));
 
-        Arrays.stream(integerPrimitives).forEach(s -> coercions.put(key(s, bigInteger),
-                                                                    toBigInteger));
-//
-//        Function<Expression, Void> intToBigDecimal = new Function<Expression, Void>() {
-//            @Override
-//            public Void apply(Expression expression) {
-//                Node node = expression.getParentNode().get();
-//                MethodCallExpr methodCallExpr = new MethodCallExpr(new NameExpr("BigInteger"), "valueOf");
-//                methodCallExpr.setParentNode(node);
-//                methodCallExpr.addArgument(expression);
-//                return null;
-//            }
-//        };
-//
-//        Arrays.stream(integerPrimitives).forEach(s -> coercions.put(key(s, BigInteger.class.getCanonicalName()),
-//                                                                    intToBigDecimal));
-//
-//        Function<Expression, Void> intWithCastToBigDecimal = new Function<Expression, Void>() {
-//            @Override
-//            public Void apply(Expression expression) {
-//                Node node = expression.getParentNode().get();
-//                MethodCallExpr methodCallExpr = new MethodCallExpr(new NameExpr("BigInteger"), "valueOf");
-//                methodCallExpr.setParentNode(node);
-//                methodCallExpr.addArgument(new CastExpr(PrimitiveType.longType(), expression));
-//                return null;
-//            }
-//        };
-//
-//        Arrays.stream(new String[] {float.class.getCanonicalName(), int.class.getCanonicalName()}).forEach(s -> {
-//            coercions.put(key(s, BigInteger.class.getCanonicalName()),
-//                          intWithCastToBigDecimal);
-//        });
+        String bigInteger = toObjectDescriptor(BigInteger.class.getCanonicalName().replace(".", "/"));
+
+        Arrays.stream(integerPrimitives).forEach(p -> {
+            coercions.put(key(p.toDescriptor(), bigInteger), toBigInteger);
+            coercions.put(key("Ljava/lang/" + p.toBoxedType() + ";", bigInteger), toBigInteger);
+        });
+
+    }
+
+    private static String toObjectDescriptor(String canonicalType) {
+        return "L" + canonicalType + ";";
+    }
+
+    public void dateCoercion() {
+//        new java.util.Date(Character.valueOf('c'));
+//        new java.util.Date((long)10.0f);
+//        new java.util.Date((long)10.0d);
+//        //new java.util.Date((long) Float.valueOf("10.0"));
+//        new java.util.Date((long)10.0d);
+
+        ParseResult<ClassOrInterfaceType> result = transpilerContext.getParser().parseClassOrInterfaceType("java.util.Date");
+        if (!result.isSuccessful()) {
+            throw new RuntimeException("Cannot resolve type:" + result.getProblems());
+        }
+
+        final ClassOrInterfaceType dateType = result.getResult().get();
+
+        Function<Expression, Expression> integerToDate = new Function<>() {
+            @Override
+            public Expression apply(Expression e) {
+                ClassOrInterfaceType type = dateType.clone();
+
+                ObjectCreationExpr expr = new ObjectCreationExpr(null, type, NodeList.nodeList(e));
+
+                return expr;
+            }
+        };
+
+        String date = toObjectDescriptor(Date.class.getCanonicalName().replace(".", "/"));
+
+        Arrays.stream(integerPrimitives).forEach(p -> {
+            coercions.put(key(p.toDescriptor(), date), integerToDate);
+            coercions.put(key("Ljava/lang/" + p.toBoxedType() + ";", date), integerToDate);
+        });
     }
 
     CoercionKey key(String sourceType, String targetType) {
@@ -157,15 +183,6 @@ public class CoerceRewriter {
                    '}';
         }
     }
-
-
-
-
-    public CoerceRewriter() {
-        populate();
-    }
-
-    public static final CoerceRewriter INSTANCE = new CoerceRewriter();
 
     public Optional<Expression> coerce(ResolvedType source, Expression sourceExpression, ResolvedType target) {
         CoercionKey key = key(source.toDescriptor(),

@@ -20,6 +20,8 @@ import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.PackageDeclaration;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.expr.Name;
+import org.mvel2.EvaluatorConfig.BaseValues;
+import org.mvel2.EvaluatorConfig.ContextObjectValues;
 import org.mvel3.MVEL.Type;
 import org.mvel3.javacompiler.KieMemoryCompiler;
 import org.mvel3.parser.printer.PrintUtil;
@@ -33,7 +35,6 @@ import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -58,13 +59,40 @@ public class MVELCompiler {
         return compileEvaluator(classManager, classLoader, unit);
     }
 
-    public PojoEvaluator compilePojoEvaluator(ClassManager classManager, String expression, Class contextClass, Class returnClass, String[] vars,
+    public PojoEvaluator compilePojoEvaluator(ClassManager classManager, String expression, Class contextClass, Class outClass, String[] vars,
                                               Set<String> imports, ClassLoader classLoader) {
-        CompilationUnit unit = compilePojoEvaluatorNoLoad(expression, contextClass, returnClass, vars, imports);
+        CompilationUnit unit = compilePojoEvaluatorNoLoad(expression, contextClass, outClass, vars, imports);
 
         return compileEvaluator(classManager, classLoader, unit);
     }
 
+    public PojoEvaluator compilePojoEvaluator(String expr, ContextObjectValues config) {
+        CompilationUnit unit = compilePojoEvaluatorNoLoad(expr, config);
+
+        return compileEvaluator(unit, config);
+    }
+
+    private CompilationUnit compilePojoEvaluatorNoLoad(String expr, ContextObjectValues config) {
+        CompilationUnit unit = compilePojoEvaluatorNoLoad(expr, config);
+
+        return unit;
+    }
+
+    public PojoEvaluator compileRootObjectEvaluator(ClassManager classManager, String expression,
+                                                    Class rootClass, String rootGenerics,
+                                                    Class outClass, String outGenerics,
+                                                    Set<String> imports, ClassLoader classLoader) {
+        CompilationUnit unit = compileRootObjectEvaluatorNoLoad(expression,
+                                                                rootClass, rootGenerics,
+                                                                outClass, outGenerics,
+                                                                imports);
+
+        return compileEvaluator(classManager, classLoader, unit);
+    }
+
+    private <T> T compileEvaluator(CompilationUnit unit, BaseValues baseConfig) {
+        return compileEvaluator(baseConfig.classManager(), baseConfig.classLoader(), unit);
+    }
     private <T> T compileEvaluator(ClassManager classManager, ClassLoader classLoader, CompilationUnit unit) {
         String javaFQN = evaluatorFullQualifiedName(unit);
 
@@ -81,7 +109,7 @@ public class MVELCompiler {
                                                      String... returnVars) {
         TranspiledResult input = MVELTranspiler.transpile(expression, imports, types);
 
-        return new CompilationUnitGenerator().createMapEvaluatorUnit(expression, input, types, returnVars);
+        return new CompilationUnitGenerator(input.getTranspilerContext().getParser()).createMapEvaluatorUnit(expression, input, types, returnVars);
     }
 
     public CompilationUnit compileArrayEvaluatorNoLoad(String expression,
@@ -92,12 +120,12 @@ public class MVELCompiler {
         Map<String, Type> typeMap = Arrays.stream(types).collect(Collectors.toMap(v -> v.getName(), v -> Type.type(v.getClazz(), v.getGenerics())));
         TranspiledResult input = MVELTranspiler.transpile(expression, imports, typeMap);
 
-        return new CompilationUnitGenerator().createArrayEvaluatorUnit(expression, input, types, returnVars);
+        return new CompilationUnitGenerator(input.getTranspilerContext().getParser()).createArrayEvaluatorUnit(expression, input, types, returnVars);
     }
 
     public CompilationUnit compilePojoEvaluatorNoLoad(String expression,
                                                       Class contextClass,
-                                                      Class returnClass,
+                                                      Class outClass,
                                                       String[] vars,
                                                       Set<String> imports) {
         Map<String, Type> map = new HashMap<>();
@@ -115,7 +143,22 @@ public class MVELCompiler {
 
         TranspiledResult input = MVELTranspiler.transpile(expression, imports, map);
 
-        return new CompilationUnitGenerator().createPojoEvaluatorUnit(expression, input, contextClass, returnClass, methods);
+        return new CompilationUnitGenerator(input.getTranspilerContext().getParser()).createPojoEvaluatorUnit(expression, input, contextClass, outClass, methods);
+    }
+
+    public CompilationUnit compileRootObjectEvaluatorNoLoad(String expression,
+                                                            Class rootClass,
+                                                            String rootGenerics,
+                                                            Class outClass,
+                                                            String outGenerics,
+                                                            Set<String> imports) {
+        Map<String, Type> types = new HashMap<>();
+        types.put("___this", Type.type(rootClass, rootGenerics));
+
+        TranspiledResult input = MVELTranspiler.transpile(expression, imports, types);
+
+        return new CompilationUnitGenerator(input.getTranspilerContext().getParser()).createRootObjectEvaluatorUnit(expression, input, rootClass,
+                                                                                                                    rootGenerics, outClass, outGenerics);
     }
 
     public Method getMethod(Class contextClass, String var)  {
@@ -165,5 +208,4 @@ public class MVELCompiler {
         );
         KieMemoryCompiler.compile(classManager, sources, classLoader);
     }
-
 }

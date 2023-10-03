@@ -17,6 +17,7 @@
 package org.mvel3;
 
 import com.github.javaparser.JavaParser;
+import com.github.javaparser.ParseResult;
 import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.ImportDeclaration;
@@ -41,6 +42,7 @@ import com.github.javaparser.ast.stmt.ReturnStmt;
 import com.github.javaparser.ast.stmt.Statement;
 import com.github.javaparser.ast.type.ClassOrInterfaceType;
 import com.github.javaparser.ast.type.Type;
+import org.mvel3.parser.MvelParser;
 import org.mvel3.parser.printer.PrintUtil;
 import org.mvel3.transpiler.TranspiledResult;
 import org.mvel3.transpiler.context.Declaration;
@@ -67,6 +69,16 @@ public class CompilationUnitGenerator {
     private Statement lastBodyStatement;
 
     private static final String RESULT_VALUE_REFERENCE_NAME = "___resultValue";
+
+    private static final String ROOT_PREFIX = "___this";
+
+
+
+    private MvelParser parser;
+
+    public CompilationUnitGenerator(MvelParser parser) {
+        this.parser = parser;
+    }
 
     public CompilationUnit createMapEvaluatorUnit(String originalExpression, TranspiledResult input, Map<String, MVEL.Type> types, String... returnVars) {
         loadTemplate("MapEvaluatorTemplate");
@@ -128,6 +140,52 @@ public class CompilationUnitGenerator {
 
         addImports(input);
         rewriteBody(input, returnClass);
+
+        return template;
+    }
+
+    public CompilationUnit createRootObjectEvaluatorUnit(String originalExpression, TranspiledResult input,
+                                                         Class rootClass, String rootGenerics, Class outClass,
+                                                         String outGenerics) {
+        loadTemplate("PojoEvaluatorTemplate");
+        renameTemplateClass(originalExpression, "PojoEvaluatorTemplate");
+
+        clearExamples();
+
+        ParseResult<Type> rootTypeResult = parser.parseType(rootClass.getCanonicalName() + rootGenerics);
+        if (!rootTypeResult.isSuccessful()) {
+            throwParserException(rootClass, rootGenerics, rootTypeResult);
+        }
+
+        ParseResult<Type> outTypeResult = parser.parseType(outClass.getCanonicalName() + outGenerics);
+        if (!rootTypeResult.isSuccessful()) {
+            throwParserException(outClass, outGenerics, rootTypeResult);
+        }
+
+        Type rootType = rootTypeResult.getResult().get();
+        Type outType = outTypeResult.getResult().get();
+
+        evaluatorClass.getImplementedTypes(0).setTypeArguments(rootType, outType);
+
+        methodDeclaration.getParameter(0).setType(rootType);
+        methodDeclaration.setType(outType);
+
+        ParseResult<Type> result = parser.parseType(rootClass.getCanonicalName() + rootGenerics);
+        if (result.isSuccessful()) {
+            Type type = result.getResult().get();
+            VariableDeclarationExpr variable = new VariableDeclarationExpr(type, ROOT_PREFIX);
+            variable.getVariable(0).setInitializer(new NameExpr("pojo"));
+//                Expression indexMethodExpression = new CastExpr(type, new MethodCallExpr(new NameExpr("pojo"), method.getName()));
+//                methodBody.addStatement(0, variable);
+//
+//                final Expression expr = new AssignExpr(new NameExpr(binding), new NameExpr("pojo"), AssignExpr.Operator.ASSIGN);
+            bindingAssignmentBlock.addStatement(variable);
+        } else {
+            throwParserException(rootClass, rootGenerics, result);
+        }
+
+        addImports(input);
+        rewriteBody(input, outClass);
 
         return template;
     }
@@ -198,10 +256,31 @@ public class CompilationUnitGenerator {
         lastBodyStatement.replace(node);
     }
 
-    private void addResultReference(Class returnClass) {
-        VariableDeclarationExpr returnVariable = new VariableDeclarationExpr(StaticJavaParser.parseType(returnClass.getCanonicalName()),
-                                                                             RESULT_VALUE_REFERENCE_NAME);
-        methodBody.addStatement(0, returnVariable);
+    private void addResultReference(Class outClass) {
+        addResultReference(outClass, "");
+    }
+
+    private void addResultReference(Class outClass, String outGenerics) {
+        outGenerics = (outGenerics != null) ? outGenerics : "";
+
+
+        ParseResult<Type> result = parser.parseType(outClass.getCanonicalName() + outGenerics);
+        if (result.isSuccessful()) {
+
+            VariableDeclarationExpr returnVariable = new VariableDeclarationExpr(result.getResult().get(),
+                                                                                 RESULT_VALUE_REFERENCE_NAME);
+            methodBody.addStatement(0, returnVariable);
+        } else {
+            throwParserException(outClass, outGenerics, result);
+        }
+    }
+
+    private static void throwParserException(Class outClass, String outGenerics, ParseResult<Type> result) {
+        throwParserException(outClass.getCanonicalName() + outGenerics, result);
+    }
+
+    private static void throwParserException(String type, ParseResult<Type> result) {
+        throw new RuntimeException("Unable to parser type: " + type + "\n" + result.getProblems().toString());
     }
 
     private void createMapContextVariableAssignments(Set<Entry<String, MVEL.Type>> entries, Set<String> inputs, String[] returnVars) {
@@ -215,17 +294,22 @@ public class CompilationUnitGenerator {
             
             MVEL.Type contextVarType = entry.getValue();
             if (contextVarType.getClazz().getCanonicalName() != null) {
-                Type type = StaticJavaParser.parseType(contextVarType.getClazz().getCanonicalName() + contextVarType.getGenerics());
-                VariableDeclarationExpr varDecl = new VariableDeclarationExpr(type, variable);
-                Expression indexMethodExpression = new CastExpr(type, new MethodCallExpr(new NameExpr("map"), "get", NodeList.nodeList(new StringLiteralExpr(variable))));
-                methodBody.addStatement(0, varDecl);
+                ParseResult<Type> result = parser.parseType(contextVarType.getClazz().getCanonicalName() + contextVarType.getGenerics());
+                if (result.isSuccessful()) {
+                    Type type = result.getResult().get();
+                    VariableDeclarationExpr varDecl = new VariableDeclarationExpr(type, variable);
+                    Expression indexMethodExpression = new CastExpr(type, new MethodCallExpr(new NameExpr("map"), "get", NodeList.nodeList(new StringLiteralExpr(variable))));
+                    methodBody.addStatement(0, varDecl);
 
-                final Expression expr = new AssignExpr(new NameExpr(variable), indexMethodExpression, AssignExpr.Operator.ASSIGN);
-                bindingAssignmentBlock.addStatement(expr);
+                    final Expression expr = new AssignExpr(new NameExpr(variable), indexMethodExpression, AssignExpr.Operator.ASSIGN);
+                    bindingAssignmentBlock.addStatement(expr);
 
-                if (returnSet.contains(variable)) {
-                    MethodCallExpr putExpr = new MethodCallExpr(new NameExpr("map"), "put", NodeList.nodeList(new StringLiteralExpr(variable), new NameExpr(variable)));
-                    repopulateMapBlock.addStatement(putExpr);
+                    if (returnSet.contains(variable)) {
+                        MethodCallExpr putExpr = new MethodCallExpr(new NameExpr("map"), "put", NodeList.nodeList(new StringLiteralExpr(variable), new NameExpr(variable)));
+                        repopulateMapBlock.addStatement(putExpr);
+                    }
+                } else {
+                    throwParserException(contextVarType.getClazz(), contextVarType.getGenerics(), result);
                 }
             }
         }
@@ -237,24 +321,29 @@ public class CompilationUnitGenerator {
         for (int i = 0; i < types.length; i++) {
             Class<?> contextVarClass = types[i].getClazz();
             String binding = types[i].getName();
+            ParseResult<Type> result = parser.parseType(types[i].getClazz().getCanonicalName() + types[i].getGenerics());
             if (contextVarClass.getCanonicalName() != null) {
-                Type type = StaticJavaParser.parseType(types[i].getClazz().getCanonicalName() + types[i].getGenerics());
-                VariableDeclarationExpr variable = new VariableDeclarationExpr(type, binding);
+                if (result.isSuccessful()) {
+                    Type type = result.getResult().get();
+                    VariableDeclarationExpr variable = new VariableDeclarationExpr(type, binding);
 
-                Expression indexMethodExpression = new CastExpr(type, new ArrayAccessExpr(new NameExpr("array"), new IntegerLiteralExpr(i)));
+                    Expression indexMethodExpression = new CastExpr(type, new ArrayAccessExpr(new NameExpr("array"), new IntegerLiteralExpr(i)));
 
-                methodBody.addStatement(0, variable);
+                    methodBody.addStatement(0, variable);
 
 
-                final Expression expr = new AssignExpr(new NameExpr(binding), indexMethodExpression, AssignExpr.Operator.ASSIGN);
-                bindingAssignmentBlock.addStatement(expr);
+                    final Expression expr = new AssignExpr(new NameExpr(binding), indexMethodExpression, AssignExpr.Operator.ASSIGN);
+                    bindingAssignmentBlock.addStatement(expr);
 
-                if (returnSet.contains(binding)) {
-                    AssignExpr putExpr = new AssignExpr(new ArrayAccessExpr(new NameExpr("array"), new IntegerLiteralExpr(i)),
-                                                        new NameExpr(binding),
-                                                        Operator.ASSIGN);
+                    if (returnSet.contains(binding)) {
+                        AssignExpr putExpr = new AssignExpr(new ArrayAccessExpr(new NameExpr("array"), new IntegerLiteralExpr(i)),
+                                                            new NameExpr(binding),
+                                                            Operator.ASSIGN);
 
-                    repopulateMapBlock.addStatement(putExpr);
+                        repopulateMapBlock.addStatement(putExpr);
+                    }
+                } else {
+                    throwParserException(types[i].getClazz(), types[i].getGenerics(), result);
                 }
             }
         }
@@ -267,13 +356,18 @@ public class CompilationUnitGenerator {
 
         Class<?> contextVarClass = method.getReturnType();
         if (contextVarClass.getCanonicalName() != null) {
-            Type type = StaticJavaParser.parseType(method.getGenericReturnType().getTypeName());
-            VariableDeclarationExpr variable = new VariableDeclarationExpr(type, binding);
-            Expression indexMethodExpression = new CastExpr(type, new MethodCallExpr(new NameExpr("pojo"), method.getName()));
-            methodBody.addStatement(0, variable);
+            ParseResult<Type> result = parser.parseType(method.getGenericReturnType().getTypeName());
+            if (result.isSuccessful()) {
+                Type type = result.getResult().get();
+                VariableDeclarationExpr variable = new VariableDeclarationExpr(type, binding);
+                Expression indexMethodExpression = new CastExpr(type, new MethodCallExpr(new NameExpr("pojo"), method.getName()));
+                methodBody.addStatement(0, variable);
 
-            final Expression expr = new AssignExpr(new NameExpr(binding), indexMethodExpression, AssignExpr.Operator.ASSIGN);
-            bindingAssignmentBlock.addStatement(expr);
+                final Expression expr = new AssignExpr(new NameExpr(binding), indexMethodExpression, AssignExpr.Operator.ASSIGN);
+                bindingAssignmentBlock.addStatement(expr);
+            } else {
+                throwParserException(method.getGenericReturnType().getTypeName(), result);
+            }
         }
     }
 

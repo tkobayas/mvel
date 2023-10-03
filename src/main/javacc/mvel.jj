@@ -3840,6 +3840,45 @@ Expression CastExpression():
     { return ret; }
 }
 
+Expression InlineExpression(Expression expr):
+{
+    Expression ret;
+    ReferenceType referenceType;
+    PrimitiveType primitiveType;
+    JavaToken begin = INVALID;
+    NodeList<AnnotationExpr> annotations;
+    NodeList<ReferenceType> typesOfMultiCast = emptyNodeList();
+}
+{
+    { begin=token(); }
+    annotations = Annotations()
+    (
+        // ( PrimitiveType ) UnaryExpression
+        LOOKAHEAD(2)
+        primitiveType = PrimitiveType(annotations)
+        "#"
+        { ret = new CastExpr(range(begin, token()), primitiveType, expr); }
+     |
+        // ( ReferenceType {AdditionalBound} ) UnaryExpressionNotPlusMinus
+        // ( ReferenceType {AdditionalBound} ) LambdaExpression
+        referenceType = ReferenceType(annotations) { typesOfMultiCast = add(typesOfMultiCast, referenceType); }
+        (
+            "&"
+            referenceType = AnnotatedReferenceType() { typesOfMultiCast = add(typesOfMultiCast, referenceType); }
+        )*
+        "#"
+        // TODO/FIXME: Handle LambdaExpression? Or is it handled elsewhere?
+        {
+            if (typesOfMultiCast.size() > 1) {
+                ret = new CastExpr(range(begin, token()), new IntersectionType(range(typesOfMultiCast.get(0), typesOfMultiCast.get(typesOfMultiCast.size() -1)), typesOfMultiCast), expr);
+            } else {
+                ret = new CastExpr(range(begin, token()), referenceType, expr);
+            }
+        }
+    )
+    { return ret; }
+}
+
 
 /**
  * https://docs.oracle.com/javase/specs/jls/se15/html/jls-15.html#jls-15.8
@@ -4030,72 +4069,55 @@ Expression PrimarySuffixWithoutSuper(Expression scope):
     NodeList<Expression> args = emptyNodeList();
     boolean hasArgs = false;
     SimpleName name;
-    Name fqname;
-    Type type;
-    NodeList<AnnotationExpr> annotations = new NodeList<AnnotationExpr>();
 }
 {
+(
+    "."
     (
-        "."
-        (
-            "this"
-            { ret = new ThisExpr(range(scope, token()), scopeToName(scope)); }
-         |
-            ret = AllocationExpression(scope)
-         |
-            LOOKAHEAD( [ TypeArguments() ] Identifier() )
-            [ typeArgs = TypeArguments() ]
-            name = SimpleName()
-            [ args = Arguments() {hasArgs=true;} ]
-            {
-                if (hasArgs) {
-	  			    ret = parseMethodExprOrHalfBinary(range(scope, token()), scope, typeArgs.list, name, args, false);
-                } else {
-                    ret =  new FieldAccessExpr(range(scope, token()), scope, typeArgs.list, name);
-                }
-            }
-        )
+        "this"
+        { ret = new ThisExpr(range(scope, token()), scopeToName(scope)); }
      |
-	  "["ret = Expression() "]" { ret = new ArrayAccessExpr(range(scope, token()), scope, ret); }
-// mvel start
-	|
-	  "#"
-	  (
-	    fqname = Name()
-	  	[ args = Arguments() {hasArgs=true;} ]
-	  	{
-			if (hasArgs) {
-	  			ret = new FullyQualifiedInlineCastExpr(range(scope, token()), scope, fqname, args);
-			} else {
-	  			ret = new FullyQualifiedInlineCastExpr(range(scope, token()), scope, fqname);
-			}
-	  	}
-	  |
-	    "(" type = Type(emptyNodeList()) ")" { ret = new InlineCastExpr(range(scope, token()), type, scope); }
-	  )
-	|
-  	  "!."
-       (
-        "this" { ret = new ThisExpr(range(scope.getTokenRange().get().getBegin(), token()), scopeToName(scope)); }
-      |
         ret = AllocationExpression(scope)
-      |
+     |
         LOOKAHEAD( [ TypeArguments() ] Identifier() )
         [ typeArgs = TypeArguments() ]
         name = SimpleName()
         [ args = Arguments() {hasArgs=true;} ]
         {
             if (hasArgs) {
-                ret = parseMethodExprOrHalfBinary(range(scope.getTokenRange().get().getBegin(), token()), scope, typeArgs.list, name, args, true);
+                  ret = parseMethodExprOrHalfBinary(range(scope, token()), scope, typeArgs.list, name, args, false);
             } else {
-                ret = new NullSafeFieldAccessExpr(range(scope.getTokenRange().get().getBegin(), token()), scope, typeArgs.list, name);
+                ret =  new FieldAccessExpr(range(scope, token()), scope, typeArgs.list, name);
             }
         }
-        )
-// mvel end
     )
-    { return ret; }
+ |
+      "#"
+        ret = InlineExpression(scope)
+      [
+        LOOKAHEAD( [ TypeArguments() ] Identifier() )
+        [ typeArgs = TypeArguments() ]
+        name = SimpleName()
+        [ args = Arguments() {hasArgs=true;} ]
+        {
+            if (hasArgs) {
+                  ret = parseMethodExprOrHalfBinary(range(scope, token()), ret, typeArgs.list, name, args, false);
+            } else {
+                ret =  new FieldAccessExpr(range(scope, token()), ret, typeArgs.list, name);
+            }
+        }
+      ]
+ |
+    "["
+    ret = Expression()
+    "]"
+    { ret = new ArrayAccessExpr(range(scope, token()), scope, ret); }
+)
+{ return ret; }
 }
+
+
+
 
 /**
  * Note that a Long Literal is defined as an {@code IntegerLiteral}, suffixed by "L"

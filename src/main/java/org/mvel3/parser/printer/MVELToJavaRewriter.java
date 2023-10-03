@@ -5,6 +5,8 @@ import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.body.VariableDeclarator;
 import com.github.javaparser.ast.expr.AssignExpr.Operator;
 import com.github.javaparser.ast.expr.BinaryExpr;
+import com.github.javaparser.ast.expr.CastExpr;
+import com.github.javaparser.ast.expr.EnclosedExpr;
 import com.github.javaparser.ast.expr.Expression;
 import com.github.javaparser.ast.expr.FieldAccessExpr;
 import com.github.javaparser.ast.expr.AssignExpr;
@@ -13,20 +15,27 @@ import com.github.javaparser.ast.expr.IntegerLiteralExpr;
 import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.ast.expr.NameExpr;
 import com.github.javaparser.ast.expr.NullLiteralExpr;
+import com.github.javaparser.ast.expr.StringLiteralExpr;
 import com.github.javaparser.ast.expr.TextBlockLiteralExpr;
 import com.github.javaparser.ast.expr.VariableDeclarationExpr;
+import com.github.javaparser.ast.type.ClassOrInterfaceType;
 import com.github.javaparser.ast.type.Type;
 import com.github.javaparser.resolution.MethodUsage;
+import com.github.javaparser.resolution.Solver;
 import com.github.javaparser.resolution.UnsolvedSymbolException;
 import com.github.javaparser.resolution.declarations.ResolvedFieldDeclaration;
 import com.github.javaparser.resolution.declarations.ResolvedReferenceTypeDeclaration;
+import com.github.javaparser.resolution.declarations.ResolvedTypeDeclaration;
 import com.github.javaparser.resolution.declarations.ResolvedTypeParameterDeclaration;
+import com.github.javaparser.resolution.model.SymbolReference;
 import com.github.javaparser.resolution.model.typesystem.ReferenceTypeImpl;
 import com.github.javaparser.resolution.types.ResolvedType;
-import com.github.javaparser.symbolsolver.javaparsermodel.JavaParserFacade;
+import com.github.javaparser.symbolsolver.javaparsermodel.JavaParserFactory;
+import com.github.javaparser.symbolsolver.javaparsermodel.contexts.CompilationUnitContext;
 import com.github.javaparser.utils.Pair;
 import org.mvel3.parser.ast.expr.DrlNameExpr;
-import org.mvel3.transpiler.context.MvelTranspilerContext;
+import org.mvel3.parser.ast.expr.FullyQualifiedInlineCastExpr;
+import org.mvel3.transpiler.context.TranspilerContext;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -48,32 +57,47 @@ public class MVELToJavaRewriter {
 
     private ResolvedType listType;
 
-    private ResolvedType rootPattern;
+    private ResolvedType rootObjectType;
 
     private BinaryExpr rootBinaryExpr;
     private BinaryExpr lastBinaryExpr;
 
     Map<BinaryExpr, BinaryExprTypes> nodeMap;
 
-    private CoerceRewriter coercer = CoerceRewriter.INSTANCE;
+    private CoerceRewriter coercer;
 
     private Set<String> declaredVars = new HashSet<>();
 
-    private MvelTranspilerContext context;
+    private TranspilerContext context;
 
-    public MVELToJavaRewriter(MvelTranspilerContext context) {
+    private CompilationUnitContext unitContext;
+
+    private MethodUsage mapGetMethod;
+
+    Expression mathContext;
+
+    public MVELToJavaRewriter(TranspilerContext context) {
         this.context = context;
-        bigDecimalType = new ReferenceTypeImpl(context.getTypeSolver().solveType(BigDecimal.class.getCanonicalName().toString()));
-        bigIntegerType = new ReferenceTypeImpl(context.getTypeSolver().solveType(BigInteger.class.getCanonicalName().toString()));
-        stringType = new ReferenceTypeImpl(context.getTypeSolver().solveType(String.class.getCanonicalName().toString()));
-        mapType = new ReferenceTypeImpl(context.getTypeSolver().solveType(Map.class.getCanonicalName().toString()));
-        listType = new ReferenceTypeImpl(context.getTypeSolver().solveType(List.class.getCanonicalName().toString()));
+        unitContext = (CompilationUnitContext) JavaParserFactory.getContext(context.getUnit(), context.getTypeSolver());
+        Solver solver = context.getFacade().getSymbolSolver();
+        this.coercer = context.getCoercer();
 
-        if (context.getRootPattern().isPresent()) {
-            rootPattern = new ReferenceTypeImpl(context.getTypeSolver().solveType(context.getRootPattern().get().getCanonicalName().toString()));
+        bigDecimalType = solver.classToResolvedType(BigDecimal.class);
+        bigIntegerType = solver.classToResolvedType(BigInteger.class);
+        stringType = solver.classToResolvedType(String.class);
+        mapType = solver.classToResolvedType(Map.class);
+        listType = solver.classToResolvedType(List.class);
+
+        mathContext = context.getParser().parseExpression("java.math.MathContext.DECIMAL128").getResult().get();
+
+        if (context.getRootObject().isPresent()) {
+            rootObjectType = new ReferenceTypeImpl(context.getTypeSolver().solveType(context.getRootObject().get().getCanonicalName().toString()));
         }
 
         nodeMap = new IdentityHashMap<>();
+
+        ResolvedReferenceTypeDeclaration d = mapType.asReferenceType().getTypeDeclaration().get();
+        mapGetMethod = findGetterSetter("get", "", 1, d);
     }
 
     private void rewriteNode(Node node) {
@@ -105,6 +129,9 @@ public class MVELToJavaRewriter {
         }
 
         switch (node.getClass().getSimpleName())  {
+            case "CastExpr":
+                processInlineCastExpr((CastExpr) node);
+                break;
             case "AssignExpr":
                 processAssignExpr((AssignExpr) node);
                 break;
@@ -177,6 +204,39 @@ public class MVELToJavaRewriter {
 
     }
 
+    private Expression processInlineCastExpr(CastExpr node) {
+        Expression expr;
+
+        // This is assuming the name used is a reference type. What if it was a primitive or an array? // @TODO support other ResolvedTypes (mdp)
+        SymbolReference<ResolvedTypeDeclaration> ref = unitContext.solveType(node.getType().asString(), null);
+        if (!ref.isSolved()) {
+            throw new RuntimeException("Unable to resolve class name: " + node.getType().asString());
+        }
+
+        ResolvedTypeDeclaration declr = ref.getDeclaration().get();
+        ResolvedType targetType = context.getFacade().getSymbolSolver().solveTypeUsage(declr.getQualifiedName(), unitContext);
+
+        ResolvedType sourceType = node.getExpression().calculateResolvedType();
+        if (sourceType.isAssignableBy(targetType)) {
+            CastExpr cast = new CastExpr(new ClassOrInterfaceType(node.getType().asString()), node.getExpression());
+
+            EnclosedExpr enclosed = new EnclosedExpr(cast);
+            expr = enclosed;
+            node.replace(expr);
+        } else {
+            // else try coercion
+            Optional<Expression> result = coercer.coerce(sourceType, node.getExpression(), targetType);
+            if (result.isEmpty()) {
+                throw new RuntimeException("Cannot be cast or coerced: " + node);
+            }
+            expr = result.get();
+
+            node.replace(expr);
+        }
+
+        return expr;
+    }
+
     public boolean isPublicField(ResolvedReferenceTypeDeclaration d, String name) {
         for (ResolvedFieldDeclaration f : d.getAllFields()) {
             if (f.accessSpecifier() == AccessSpecifier.PUBLIC && f.getName().equals(name)) {
@@ -190,11 +250,10 @@ public class MVELToJavaRewriter {
     private Expression rewriteNameToContextObject(NameExpr nameExpr) {
         String name = nameExpr.getNameAsString();
         Expression expr = nameExpr;
-        if (rootPattern != null) {
+        if (rootObjectType != null) {
             DrlNameExpr scope = new DrlNameExpr(context.getRootPrefix().get());
 
-
-            ResolvedReferenceTypeDeclaration d = rootPattern.asReferenceType().getTypeDeclaration().get();
+            ResolvedReferenceTypeDeclaration d = rootObjectType.asReferenceType().getTypeDeclaration().get();
             FieldAccessExpr fieldAccessExpr = new FieldAccessExpr(scope, name);
 
             if (isPublicField(d, name)) {
@@ -221,9 +280,7 @@ public class MVELToJavaRewriter {
 
     private Expression rewriteMethodToContextObject(MethodCallExpr methodCallExpr) {
         Expression expr = methodCallExpr;
-        if (rootPattern != null) {
-            ResolvedReferenceTypeDeclaration d = rootPattern.asReferenceType().getTypeDeclaration().get();
-
+        if (rootObjectType != null) {
             // clone this, so we can try and resolve it against the root pattern as scope.
             // Note if this is a static import, the root will take priority.
             MethodCallExpr cloned = methodCallExpr.clone();
@@ -523,7 +580,7 @@ public class MVELToJavaRewriter {
             e2 = coerceResult.get();
         }
 
-        Expression mathContext = context.getParser().parseExpression("java.math.MathContext.DECIMAL128").getResult().get();
+
 
         List<Expression> children = getArgumentsWithUnwrap(e2);
         if (!op.equals("compareTo") && e1Type.equals(bigDecimalType)) {
@@ -557,9 +614,17 @@ public class MVELToJavaRewriter {
     public Node maybeRewriteToGetter(FieldAccessExpr n) {
         rewriteNode(n.getScope());
 
-        MethodUsage getter = getMethod("get", n, 0);
+        ResolvedType type = n.getScope().calculateResolvedType();
+        Expression arg = null;
+        MethodUsage getter = null;
+        if ( mapType.isAssignableBy(type)) {
+            getter = mapGetMethod;
+            arg = new StringLiteralExpr(n.getNameAsString());
+        } else {
+            getter = getMethod("get", n, 0);
+        }
 
-        MethodCallExpr methodCallExpr = createGetterMethodCallExpr(n, getter);
+        MethodCallExpr methodCallExpr = createGetterMethodCallExpr(n, getter, arg);
         if (methodCallExpr != null) {
             return methodCallExpr;
         }
@@ -567,9 +632,12 @@ public class MVELToJavaRewriter {
         return null;
     }
 
-    private static MethodCallExpr createGetterMethodCallExpr(FieldAccessExpr n, MethodUsage getter) {
+    private static MethodCallExpr createGetterMethodCallExpr(FieldAccessExpr n, MethodUsage getter, Expression arg) {
         if (getter != null) {
             MethodCallExpr methodCallExpr = new MethodCallExpr(getter.getName());
+            if (arg != null) {
+                methodCallExpr.addArgument(arg);
+            }
             methodCallExpr.setScope(n.getScope());
             n.replace(methodCallExpr);
 
@@ -668,7 +736,11 @@ public class MVELToJavaRewriter {
     }
 
     private static String getterSetter(String getterSetter, String name) {
-        return getterSetter + name.substring(0, 1).toUpperCase() + name.substring(1);
+        if ( name == null || name.isEmpty()) {
+            return getterSetter;
+        } else {
+            return getterSetter + name.substring(0, 1).toUpperCase() + name.substring(1);
+        }
     }
 
 
@@ -703,6 +775,8 @@ public class MVELToJavaRewriter {
         }
 
         public void setRight(Expression right) {
+            short a = 10;
+            Short.valueOf(a);
             this.right = right;
             this.rightType = right.calculateResolvedType();
         }

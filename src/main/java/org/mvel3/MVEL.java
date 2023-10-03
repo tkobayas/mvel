@@ -19,6 +19,7 @@
 
 package org.mvel3;
 
+import org.mvel2.EvaluatorConfig.ContextObjectValues;
 import org.mvel3.transpiler.context.Declaration;
 
 import java.util.HashMap;
@@ -52,6 +53,16 @@ public class MVEL {
         }
     }
 
+    private static MVEL instance;
+
+    public static MVEL get() {
+        if (instance == null) {
+            instance = new MVEL();
+        }
+
+        return instance;
+    }
+
     ClassManager clsManager = new ClassManager();
 
     public MapEvaluator compileMapEvaluator(final String providedExpr, final Set<String> imports, final Map<String, Type> types, String... returnVars) {
@@ -73,7 +84,27 @@ public class MVEL {
         return  evaluator;
     }
 
-    public <T, R> PojoEvaluator<T,R> compilePojoEvaluator(final String providedExpr, Set<String> imports, Class<T> contextClass, Class<R> returnClass, String... vars) {
+    public <T, R> PojoEvaluator<T,R> compilePojoEvaluator(ContextObjectValues evalValues) {
+        String actualExpression = maybeWrap(evalValues.expression());
+        MVELCompiler MVELCompiler = new MVELCompiler();
+        PojoEvaluator evaluator = MVELCompiler.compilePojoEvaluator(clsManager, actualExpression,
+                                                                    evalValues.contextClass(), evalValues.outClass(), evalValues.vars(), evalValues.imports(),
+                                                                    MVELCompiler.getClass().getClassLoader());
+
+        return  evaluator;
+    }
+
+    public <T, R> PojoEvaluator<T,R> compilePojoEvaluator(final String expr,
+                                                          final ContextObjectValues config) {
+        String actualExpression = maybeWrap(expr);
+        MVELCompiler MVELCompiler = new MVELCompiler();
+        PojoEvaluator evaluator = MVELCompiler.compilePojoEvaluator(actualExpression,
+                                                                    config);
+
+        return  evaluator;
+    }
+
+    public <T, R> PojoEvaluator<T,R> compileRootObjectEvaluator(final String providedExpr, Set<String> imports, Class<T> contextClass, Class<R> returnClass, String... vars) {
         String actualExpression = maybeWrap(providedExpr);
         MVELCompiler MVELCompiler = new MVELCompiler();
         PojoEvaluator evaluator = MVELCompiler.compilePojoEvaluator(clsManager, actualExpression,
@@ -104,7 +135,8 @@ public class MVEL {
     private static String maybeWrap(String providedExpr) {
         String actualExpr = providedExpr;
         if ( !providedExpr.contains(";")) { // @TODO this is aa very crude sniff. Personally I'd rather not sniff and instead have two different method calls (mdp)
-            actualExpr = "{ return " + providedExpr + ";}";
+            //actualExpr = "{ return " + providedExpr + ";}";
+            actualExpr = "return " + providedExpr + ";";
         }
         return actualExpr;
     }

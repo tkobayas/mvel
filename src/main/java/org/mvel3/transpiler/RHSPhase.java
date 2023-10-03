@@ -38,22 +38,14 @@ import com.github.javaparser.ast.expr.StringLiteralExpr;
 import com.github.javaparser.ast.expr.TextBlockLiteralExpr;
 import com.github.javaparser.ast.expr.UnaryExpr;
 import com.github.javaparser.ast.expr.VariableDeclarationExpr;
-import com.github.javaparser.ast.nodeTypes.NodeWithSimpleName;
 import com.github.javaparser.ast.stmt.ExpressionStmt;
 import com.github.javaparser.ast.stmt.YieldStmt;
-import com.github.javaparser.ast.type.ArrayType;
-import com.github.javaparser.ast.type.ClassOrInterfaceType;
-import com.github.javaparser.ast.type.PrimitiveType;
-import com.github.javaparser.ast.type.TypeParameter;
-import com.github.javaparser.ast.type.VarType;
-import com.github.javaparser.ast.type.WildcardType;
 import org.mvel3.parser.ast.visitor.DrlGenericVisitorWithDefaults;
 import org.mvel3.transpiler.RHSPhase.Context;
 import org.mvel3.transpiler.ast.ObjectCreationExpressionT;
 import org.mvel3.parser.ast.expr.BigDecimalLiteralExpr;
 import org.mvel3.parser.ast.expr.BigIntegerLiteralExpr;
 import org.mvel3.parser.ast.expr.DrlNameExpr;
-import org.mvel3.parser.ast.visitor.DrlGenericVisitor;
 import org.mvel3.transpiler.ast.BigDecimalArithmeticExprT;
 import org.mvel3.transpiler.ast.BigDecimalConvertedExprT;
 import org.mvel3.transpiler.ast.BigDecimalRelationalExprT;
@@ -72,7 +64,7 @@ import org.mvel3.transpiler.ast.StringLiteralExpressionT;
 import org.mvel3.transpiler.ast.TypedExpression;
 import org.mvel3.transpiler.ast.UnalteredTypedExpression;
 import org.mvel3.transpiler.context.Declaration;
-import org.mvel3.transpiler.context.MvelTranspilerContext;
+import org.mvel3.transpiler.context.TranspilerContext;
 import org.mvel3.util.ClassUtils;
 import org.mvel3.util.MethodUtils.NullType;
 
@@ -138,9 +130,9 @@ public class RHSPhase extends DrlGenericVisitorWithDefaults<TypedExpression, Con
         }
     }
 
-    private final MvelTranspilerContext mvelTranspilerContext;
+    private final TranspilerContext mvelTranspilerContext;
 
-    RHSPhase(MvelTranspilerContext mvelTranspilerContext) {
+    RHSPhase(TranspilerContext mvelTranspilerContext) {
         this.mvelTranspilerContext = mvelTranspilerContext;
         methodCallExprVisitor = new MethodCallExprVisitor(this, this.mvelTranspilerContext);
     }
@@ -237,7 +229,7 @@ public class RHSPhase extends DrlGenericVisitorWithDefaults<TypedExpression, Con
     }
 
     private Optional<TypedExpression> asPropertyAccessorOfRootPattern(SimpleName n) {
-        Optional<Class<?>> scopeType = mvelTranspilerContext.getRootPattern();
+        Optional<Class<?>> scopeType = mvelTranspilerContext.getRootObject();
         Optional<Method> optAccessor = scopeType.flatMap(t -> ofNullable(getAccessor(classFromType(t), n.asString())));
 
         return map2(mvelTranspilerContext.createRootTypePrefix(), optAccessor, FieldToAccessorTExpr::new);

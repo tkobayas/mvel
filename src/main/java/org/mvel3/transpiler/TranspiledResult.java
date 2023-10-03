@@ -19,6 +19,7 @@ package org.mvel3.transpiler;
 import com.github.javaparser.ast.ImportDeclaration;
 import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.stmt.BlockStmt;
+import org.mvel3.transpiler.context.TranspilerContext;
 
 import java.util.Set;
 
@@ -32,6 +33,8 @@ public interface TranspiledResult {
 
     // this overlaps with getUsedBindings, I've left above for now and will unify on this later.
     Set<String> getInputs();
+
+    public TranspilerContext getTranspilerContext();
 
 
     Object asString();

@@ -17,7 +17,6 @@
 package org.mvel3.transpiler;
 
 import com.github.javaparser.ast.Node;
-import com.github.javaparser.ast.expr.Expression;
 import com.github.javaparser.ast.stmt.BlockStmt;
 import com.github.javaparser.ast.stmt.DoStmt;
 import com.github.javaparser.ast.stmt.ExpressionStmt;
@@ -31,7 +30,6 @@ import org.mvel3.parser.ast.visitor.DrlGenericVisitorWithDefaults;
 import org.mvel3.transpiler.ast.BlockStmtT;
 import org.mvel3.transpiler.ast.DoStmtT;
 import org.mvel3.transpiler.ast.ForEachDowncastStmtT;
-import org.mvel3.transpiler.ast.ForEachStmtT;
 import org.mvel3.transpiler.ast.ForStmtT;
 import org.mvel3.transpiler.ast.IfStmtT;
 import org.mvel3.transpiler.ast.SwitchEntryT;
@@ -39,8 +37,7 @@ import org.mvel3.transpiler.ast.SwitchStmtT;
 import org.mvel3.transpiler.ast.TypedExpression;
 import org.mvel3.transpiler.ast.WhileStmtT;
 import org.mvel3.transpiler.context.Declaration;
-import org.mvel3.transpiler.context.MvelTranspilerContext;
-import org.mvel3.parser.ast.visitor.DrlGenericVisitor;
+import org.mvel3.transpiler.context.TranspilerContext;
 import org.mvel3.parser.printer.PrintUtil;
 import org.mvel3.transpiler.ast.UnalteredTypedExpression;
 
@@ -53,9 +50,9 @@ import static java.util.Optional.ofNullable;
 
 public class StatementVisitor extends DrlGenericVisitorWithDefaults<TypedExpression, Void> {
 
-    private MvelTranspilerContext mvelTranspilerContext;
+    private TranspilerContext mvelTranspilerContext;
 
-    public StatementVisitor(MvelTranspilerContext mvelTranspilerContext) {
+    public StatementVisitor(TranspilerContext mvelTranspilerContext) {
         this.mvelTranspilerContext = mvelTranspilerContext;
     }
 

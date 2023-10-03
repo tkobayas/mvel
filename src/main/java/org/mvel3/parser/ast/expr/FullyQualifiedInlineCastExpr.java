@@ -15,9 +15,10 @@
 package org.mvel3.parser.ast.expr;
 
 import com.github.javaparser.TokenRange;
-import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.expr.Expression;
-import com.github.javaparser.ast.expr.Name;
+import com.github.javaparser.ast.observer.ObservableProperty;
+import com.github.javaparser.ast.type.ClassOrInterfaceType;
+import com.github.javaparser.ast.type.Type;
 import com.github.javaparser.ast.visitor.GenericVisitor;
 import com.github.javaparser.ast.visitor.VoidVisitor;
 import org.mvel3.parser.ast.visitor.DrlGenericVisitor;
@@ -25,43 +26,59 @@ import org.mvel3.parser.ast.visitor.DrlVoidVisitor;
 
 public class FullyQualifiedInlineCastExpr extends Expression {
 
-    private Expression scope;
-    private Name name;
-    private NodeList<Expression> arguments;
+    // @TODO make this work with Generics
 
-    public FullyQualifiedInlineCastExpr( Expression scope, Name name ) {
-        this( scope, name, null );
+    private Expression expression;
+
+    private Type type;
+
+    public FullyQualifiedInlineCastExpr(Expression expression, ClassOrInterfaceType type) {
+        this(null, expression, type);
     }
-
-    public FullyQualifiedInlineCastExpr( Expression scope, Name name, NodeList<Expression> arguments ) {
-        this( null, scope, name, arguments );
-    }
-
-    public FullyQualifiedInlineCastExpr( TokenRange tokenRange, Expression scope, Name name ) {
-        this( tokenRange, scope, name, null );
-    }
-
-    public FullyQualifiedInlineCastExpr( TokenRange tokenRange, Expression scope, Name name, NodeList<Expression> arguments ) {
+    public FullyQualifiedInlineCastExpr(TokenRange tokenRange, Expression expression, Type type) {
         super( tokenRange );
-        this.scope = scope;
-        this.name = name;
-        this.arguments = arguments;
+        setExpression(expression);
+        setType(type);
     }
 
-    public boolean hasArguments() {
-        return arguments != null;
+    public Type getType() {
+        return type;
     }
 
-    public Expression getScope() {
-        return scope;
+    public FullyQualifiedInlineCastExpr setType(Type type) {
+        if (type == this.type) {
+            return this;
+        }
+        notifyPropertyChange(ObservableProperty.EXPRESSION, this.type, type);
+        if (this.type != null) {
+            this.type.setParentNode(null);
+        }
+
+        this.type = type;
+
+        setAsParentNodeOf(type);
+
+        return this;
     }
 
-    public Name getName() {
-        return name;
+    public Expression getExpression() {
+        return expression;
     }
 
-    public NodeList<Expression> getArguments() {
-        return arguments;
+    public FullyQualifiedInlineCastExpr setExpression(Expression scope) {
+        if (scope == this.expression) {
+            return this;
+        }
+        notifyPropertyChange(ObservableProperty.SCOPE, this.expression, scope);
+        if (this.expression != null) {
+            this.expression.setParentNode(null);
+        }
+
+        this.expression = scope;
+
+        setAsParentNodeOf(scope);
+
+        return this;
     }
 
     @Override
@@ -71,6 +88,7 @@ public class FullyQualifiedInlineCastExpr extends Expression {
 
     @Override
     public <A> void accept(VoidVisitor<A> v, A arg) {
-        (( DrlVoidVisitor<A> )v).visit(this, arg);
+        ((DrlVoidVisitor<A>)v).visit(this, arg);
     }
+
 }
