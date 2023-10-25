@@ -111,7 +111,7 @@ public class ArithmeticTest {
     map.put("dt2", new Date(currentTimeMillis()));
     return map;
   }
-	
+
   @Ignore("DROOLS-6572 - Generates wrong code for promotion")
   @Test
   public void testMath() {
@@ -126,29 +126,26 @@ public class ArithmeticTest {
     assertThat(executeExpressionWithDefaultVariables("foo.number-1")).isEqualTo(3);
   }
 
-  @Ignore("DROOLS-6572 - Rounding error")
   @Test
   public void testMath3() {
     String expression = "(10 * 5) * 2 / 3";
-	double result = (10d * 5d) * 2d / 3d;
+	var result = (10 * 5) * 2 / 3;
 
     assertThat(executeExpressionWithDefaultVariables(expression)).isEqualTo(result);
   }
 
-  @Ignore("DROOLS-6572 - Rounding error")
   @Test
   public void testMath4() {
 	String expression = "(100 % 3) * 2 - 1 / 1 + 8 + (5 * 2)";
-    double result = ((100d % 3d) * 2d - 1d / 1d + 8d + (5d * 2d));
+    var result = ((100 % 3) * 2 - 1 / 1 + 8 + (5 * 2));
 
     assertThat(executeExpressionWithDefaultVariables(expression)).isEqualTo(result);
   }
 
-  @Ignore("DROOLS-6572 - Rounding error")
   @Test
   public void testMath4a() {
     String expression = "(100 % 90) * 20 - 15 / 16 + 80 + (50 * 21)";
-    double result = (100d % 90d) * 20d - 15d / 16d + 80d + (50d * 21d);
+    var result = (100 % 90) * 20 - 15 / 16 + 80 + (50 * 21);
 
     assertThat(executeExpressionWithDefaultVariables(expression)).isEqualTo(result);
   }
@@ -169,20 +166,18 @@ public class ArithmeticTest {
     assertThat(executeExpressionWithDefaultVariables(expression)).isEqualTo(result);
   }
 
-  @Ignore("DROOLS-6572 - Rounding error")
   @Test
   public void testMath6() {
     String expression = "(300 * five + 1) + (100 / 2 * 2)";
-    double result = (300 * 5 + 1) + 100 / 2 * 2;
+    var result = (300 * 5 + 1) + 100 / 2 * 2;
 
     assertThat(executeExpressionWithDefaultVariables(expression)).isEqualTo(result);
   }
 
-  @Ignore("DROOLS-6572 - Rounding error")
   @Test
   public void testMath7() {
 	String expression = "(100 % 3) * 2 - 1 / 1 + 8 + (5 * 2)";
-    double result = ((100d % 3d) * 2d - 1d / 1d + 8d + (5d * 2d));
+    var result = ((100 % 3) * 2 - 1 / 1 + 8 + (5 * 2));
 
     assertThat(executeExpressionWithDefaultVariables(expression)).isEqualTo(result);
   }
@@ -201,13 +196,11 @@ public class ArithmeticTest {
     assertThat(executeExpressionWithDefaultVariables("5 ** 2")).isEqualTo(25);
   }
 
-  @Ignore("DROOLS-6572 - Unable to parse")
   @Test
   public void testSignOperator() {
-    String expr = "int x = 15; -x";
-    Map<String, Object> vars = new HashMap<>();
+    String expr = "int x = 15; return -x;";
 
-    assertThat(executeExpression(expr, vars)).isEqualTo(-15);
+    assertThat(executeExpressionWithDefaultVariables(expr)).isEqualTo(-15);
   }
 
   @Test
@@ -242,36 +235,32 @@ public class ArithmeticTest {
     assertThat(executeExpressionWithDefaultVariables(expression)).isEqualTo(result);
   }
 
-  @Ignore("DROOLS-6572 - Unable to parse multiple assignements")
   @Test
   public void testMath18() {
-    String expression = "a = 100d; b = 50d; c = 20d; d = 30d; e = 2d; (a * b) * c / d * e";
-    double result = (100d * 50d) * 20d / 30d * 2d;
+    String expression = "var a = 100d; var b = 50d; var c = 20d; var d = 30d; var e = 2d; return (a * b) * c / d * e;";
+    var result = (100d * 50d) * 20d / 30d * 2d;
 
     assertThat(executeExpression(expression, Collections.emptyMap())).isEqualTo(result);
   }
 
-  @Ignore("DROOLS-6572 - Unable to parse multiple assignments")
   @Test
   public void testMath19() {
-    String expression = "a = 100; b = 500; c = 200; d = 150; e = 500; f = 800; g = 400; a-b*c*d + e*f-g";
+    String expression = "var a = 100; var b = 500; var c = 200; var d = 150; var e = 500; var f = 800; var g = 400; return a-b*c*d + e*f-g;";
     int result = 100 - 500 * 200 * 150 + 500 * 800 - 400;
     assertThat(executeExpression(expression, Collections.emptyMap())).isEqualTo(result);
   }
 
-  @Ignore("DROOLS-6572 - Unable to parse")
   @Test
   public void testMath32() {
-    String expression = "x = 20; y = 10; z = 5; x-y-z";
+    String expression = "var x = 20; var y = 10; var z = 5; return x-y-z;";
     int result = 20 - 10 - 5;
 
     assertThat(executeExpression(expression, Collections.emptyMap())).isEqualTo(result);
   }
 
-  @Ignore("DROOLS-6572 - Unable to parse")
   @Test
   public void testMath33() {
-    String expression = "x = 20; y = 2; z = 2; x/y/z";
+    String expression = "var x = 20; var y = 2; var z = 2; return x/y/z;";
     int result = 20 / 2 / 2;
 
     assertThat(executeExpression(expression, Collections.emptyMap())).isEqualTo(result);
@@ -320,20 +309,18 @@ public class ArithmeticTest {
     assertThat(executeExpressionWithDefaultVariables(expression)).isEqualTo(result);
   }
 
-  @Ignore("DROOLS-6572 - Rounding error")
   @Test
   public void testMath24() {
     String expression = "51 * 52 * 33 / 24 / 15 + 45 * 66 * 47 * 28 + 19";
-    double result = 51d * 52d * 33d / 24d / 15d + 45d * 66d * 47d * 28d + 19d;
+    var result = 51 * 52 * 33 / 24 / 15 + 45 * 66 * 47 * 28 + 19;
 
     assertThat(executeExpressionWithDefaultVariables(expression)).isEqualTo(result);
   }
 
-  @Ignore("DROOLS-6572 - Calculation error")
   @Test
   public void testMath25() {
     String expression = "51 * (40 - 1000 * 50) + 100 + 50 * 20 / 10 + 11 + 12 - 80";
-    double result = 51 * (40 - 1000 * 50) + 100 + 50 * 20 / 10 + 11 + 12 - 80;
+    var result = 51 * (40 - 1000 * 50) + 100 + 50 * 20 / 10 + 11 + 12 - 80;
 
     assertThat(executeExpressionWithDefaultVariables(expression)).isEqualTo(result);
   }
@@ -365,20 +352,18 @@ public class ArithmeticTest {
     assertThat(executeExpressionWithDefaultVariables(expression)).isEqualTo((int) result);
   }
 
-  @Ignore("DROOLS-6572 - Rounding error")
   @Test
   public void testMath29() {
     String expression = "10 + 20 / 4 / 4";
-    double result = 10d + 20d / 4d / 4d;
+    var result = 10 + 20 / 4 / 4;
 
     assertThat(executeExpressionWithDefaultVariables(expression)).isEqualTo(result);
   }
 
-  @Ignore("DROOLS-6572 - Rounding error")
   @Test
   public void testMath30() {
     String expression = "40 / 20 + 10 + 60 / 21";
-    double result = 40d / 20d + 10d + 60d / 21d;
+    var result = 40 / 20 + 10 + 60 / 21;
 
     assertThat(executeExpressionWithDefaultVariables(expression)).isEqualTo(result);
   }
@@ -627,13 +612,11 @@ public class ArithmeticTest {
     assertThat(executeExpressionWithDefaultVariables("2|4")).isEqualTo(6);
   }
 
-  @Ignore("DROOLS-6572 - Considers second element a boolean")
   @Test
   public void testBitwiseOr2() {
     assertThat(executeExpressionWithDefaultVariables("(2 | 1) > 0")).isEqualTo(true);
   }
 
-  @Ignore("DROOLS-6572 - Considers second element a boolean")
   @Test
   public void testBitwiseOr3() {
     assertThat(executeExpressionWithDefaultVariables("(2|1) == 3")).isEqualTo(true);
@@ -700,10 +683,9 @@ public class ArithmeticTest {
     assertThat(executeExpressionWithDefaultVariables("var _yYy = 10; _yYy <<= 2;")).isEqualTo(10 << 2);
   }
 
-  @Ignore("DROOLS-6572 - Unable to parse")
   @Test
   public void testUnsignedShiftRightAssign() {
-    String expression = "_xXx = -5; _xXx >>>= 2";
+    String expression = "var _xXx = -5; _xXx >>>= 2;";
 
     assertThat(executeExpression(expression, Collections.emptyMap())).isEqualTo(-5 >>> 2);
   }
@@ -794,19 +776,23 @@ public class ArithmeticTest {
 
   @Test
   public void testAssignPlus() {
-    assertThat(executeExpressionWithDefaultVariables("var xx0 = 5; xx0 += 4; return xx0 + 1;")).isEqualTo(10);
+    assertThat(executeExpressionWithDefaultVariables("var xx0 = 5; xx0 += 4; xx0 + 1;")).isEqualTo(10);
   }
 
-  @Ignore("DROOLS-6572 - Unable to parse")
   @Test
   public void testAssignPlus2() {
-    assertThat(executeExpressionWithDefaultVariables("xx0 = 5; xx0 =+ 4; xx0 + 1")).isEqualTo(10);
+    var xx0 = 5; xx0 += 4;
+    assertThat(xx0 += 1).isEqualTo(10);
+    assertThat(executeExpressionWithDefaultVariables("var xx0 = 5; xx0 += 4; xx0 += 1;")).isEqualTo(10);
   }
 
-  @Ignore("DROOLS-6572 - Rounding error")
+  //@Ignore("DROOLS-6572 - Rounding error")
   @Test
   public void testAssignDiv() {
-    assertThat(executeExpressionWithDefaultVariables("var xx0 = 20; xx0 /= 10; return xx0")).isEqualTo(2.0);
+    var xx0 = 20; xx0 /= 10;
+    assertThat(xx0).isNotEqualTo(2.0);
+    assertThat(xx0).isEqualTo(2);
+    assertThat(executeExpressionWithDefaultVariables("var xx0 = 20; xx0 /= 10;")).isEqualTo(2);
   }
 
   @Test

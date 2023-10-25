@@ -55,18 +55,13 @@ public class TranspiledExpressionResult implements TranspiledResult {
         throw new UnsupportedOperationException();
     }
 
-    public String asString() {
+    public String methodBodyAsString() {
         return printNode(expression);
     }
 
     @Override
     public BlockStmt getBlock() {
         return new BlockStmt(NodeList.nodeList(new ExpressionStmt(expression)));
-    }
-
-    @Override
-    public void rewriteBlock() {
-
     }
 
     @Override

@@ -17,14 +17,28 @@
 package org.mvel3;
 
 import com.github.javaparser.ast.CompilationUnit;
+import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.PackageDeclaration;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
+import com.github.javaparser.ast.body.VariableDeclarator;
+import com.github.javaparser.ast.expr.CastExpr;
+import com.github.javaparser.ast.expr.IntegerLiteralExpr;
+import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.ast.expr.Name;
-import org.mvel2.EvaluatorConfig.BaseValues;
-import org.mvel2.EvaluatorConfig.ContextObjectValues;
-import org.mvel3.MVEL.Type;
+import com.github.javaparser.ast.expr.NameExpr;
+import com.github.javaparser.ast.expr.StringLiteralExpr;
+import com.github.javaparser.ast.expr.VariableDeclarationExpr;
+import com.github.javaparser.ast.stmt.ExpressionStmt;
+import com.github.javaparser.ast.stmt.Statement;
+import com.github.javaparser.ast.type.Type;
+import com.github.javaparser.resolution.MethodUsage;
+import com.github.javaparser.resolution.declarations.ResolvedReferenceTypeDeclaration;
+import com.github.javaparser.resolution.types.ResolvedType;
+import org.mvel2.EvaluatorBuilder.EvaluatorInfo;
 import org.mvel3.javacompiler.KieMemoryCompiler;
+import org.mvel3.parser.printer.MVELToJavaRewriter;
 import org.mvel3.parser.printer.PrintUtil;
+import org.mvel3.transpiler.EvalPre;
 import org.mvel3.transpiler.MVELTranspiler;
 import org.mvel3.transpiler.TranspiledResult;
 import org.mvel3.transpiler.context.Declaration;
@@ -32,67 +46,131 @@ import org.mvel3.util.StringUtils;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
+
+import static org.mvel3.transpiler.MVELTranspiler.handleParserResult;
 
 public class MVELCompiler {
 
+    public <T, K, R> Evaluator<T, K, R> compile(EvaluatorInfo<T, K, R> info) {
+        CompilationUnit unit = compileNoLoad(info);
+        Evaluator<T, K, R> evaluator = compileEvaluator(unit, info);
 
-    public MapEvaluator compileMapEvaluator(ClassManager classManager,
-                                            String expression, Map<String, Type> types,
-                                            Set<String> imports,
-                                            ClassLoader classLoader,
-                                            String... returnVars) {
-        CompilationUnit unit = compileMapEvaluatorNoLoad(expression, types, imports, returnVars);
+        return evaluator;
+    }
+    public <T, K, R> TranspiledResult transpile(EvaluatorInfo<T, K, R> info) {
+        EvalPre  evalPre;
+        switch(info.variableInfo().type().getClazz().getSimpleName()){
+            case "Map":
+                evalPre = (evalInfo, context, statements) -> {
+                    NodeList tempStmts = new NodeList<Statement>();
+                    context.getInputs().stream().forEach(var -> {
+                        if (evalInfo.rootDeclaration().name().equals(var)) {
+                            // This is the root var, it will map to a parameter name already
+                            return;
+                        }
+                        Declaration declr = evalInfo.allVars().get(var);
 
-		return compileEvaluator(classManager, classLoader, unit);
-	}
-    public ArrayEvaluator compileArrayEvaluator(ClassManager classManager, String expression, Declaration[] types,
-                                                Set<String> imports,
-                                                ClassLoader classLoader, String... returnVars) {
-        CompilationUnit unit = compileArrayEvaluatorNoLoad(expression, types, imports, returnVars);
+                        MethodCallExpr methodCallExpr = new MethodCallExpr(new NameExpr("context"), "get", NodeList.nodeList(new StringLiteralExpr(declr.name())));
+                        Type castType = handleParserResult(context.getParser().parseType(declr.type().getCanonicalGenericsName()));
+                        CastExpr castExpr = new CastExpr(castType.clone(),
+                                                         methodCallExpr);
 
-        return compileEvaluator(classManager, classLoader, unit);
+                        VariableDeclarator varDeclr = new VariableDeclarator(castType, declr.name());
+                        varDeclr.setInitializer(castExpr);
+                        VariableDeclarationExpr varDeclExpr = new VariableDeclarationExpr(varDeclr);
+
+                        tempStmts.add(new ExpressionStmt(varDeclExpr));
+                    });
+
+                    tempStmts.addAll(statements);
+
+                    return tempStmts;
+                };
+                break;
+            case "List":
+                evalPre = (evalInfo, context, statements) -> {
+                    NodeList tempStmts = new NodeList<Statement>();
+
+                    for ( int i  = 0; i < evalInfo.variableInfo().vars().length; i++) {
+                        Declaration declr = evalInfo.variableInfo().vars()[i];
+                        if (context.getInputs().contains(declr.name())) {
+                            MethodCallExpr methodCallExpr = new MethodCallExpr(new NameExpr("context"), "get", NodeList.nodeList(new IntegerLiteralExpr(i)));
+                            CastExpr castExpr = new CastExpr(handleParserResult(context.getParser().parseType(declr.type().getCanonicalGenericsName())),
+                                                             methodCallExpr);
+
+                            Type               castType = handleParserResult(context.getParser().parseType(declr.type().getCanonicalGenericsName()));
+                            VariableDeclarator varDeclr = new VariableDeclarator(castType, declr.name());
+                            varDeclr.setInitializer(castExpr);
+                            VariableDeclarationExpr varDeclExpr = new VariableDeclarationExpr(varDeclr);
+
+                            tempStmts.add(new ExpressionStmt(varDeclExpr));
+                        }
+                    }
+
+                    tempStmts.addAll(statements);
+
+                    return tempStmts;
+                };
+                break;
+            default: // pojo
+                evalPre = (evalInfo, context, statements) -> {
+                    NodeList tempStmts = new NodeList<Statement>();
+                    context.getInputs().stream().forEach(var -> {
+                        Declaration declr = evalInfo.allVars().get(var);
+
+                        ResolvedType                     resolvedType = context.getFacade().getSymbolSolver().classToResolvedType(info.variableInfo().type().getClazz());
+                        ResolvedReferenceTypeDeclaration d            = resolvedType.asReferenceType().getTypeDeclaration().get();
+
+                        MethodUsage method = MVELToJavaRewriter.findGetterSetter("get", declr.name(), 0, d);
+
+                        MethodCallExpr methodCallExpr = new MethodCallExpr(new NameExpr("context"), method.getName());
+
+                        Type targetType = handleParserResult(context.getParser().parseType(declr.type().getCanonicalGenericsName()));
+
+                        VariableDeclarator varDeclr = new VariableDeclarator(targetType, declr.name());
+                        varDeclr.setInitializer(methodCallExpr);
+                        VariableDeclarationExpr varDeclExpr = new VariableDeclarationExpr(varDeclr);
+
+                        tempStmts.add(new ExpressionStmt(varDeclExpr));
+                    });
+
+                    tempStmts.addAll(statements);
+
+                    return tempStmts;
+                };
+        }
+
+        TranspiledResult input = MVELTranspiler.transpile(info, evalPre);
+
+        return input;
     }
 
-    public PojoEvaluator compilePojoEvaluator(ClassManager classManager, String expression, Class contextClass, Class outClass, String[] vars,
-                                              Set<String> imports, ClassLoader classLoader) {
-        CompilationUnit unit = compilePojoEvaluatorNoLoad(expression, contextClass, outClass, vars, imports);
+    private <T, K, R> CompilationUnit compileNoLoad(EvaluatorInfo<T, K, R> info) {
+        TranspiledResult input = transpile(info);
 
-        return compileEvaluator(classManager, classLoader, unit);
+        return new CompilationUnitGenerator(input.getTranspilerContext().getParser()).createEvaluatorUnit(input, info);
     }
 
-    public PojoEvaluator compilePojoEvaluator(String expr, ContextObjectValues config) {
-        CompilationUnit unit = compilePojoEvaluatorNoLoad(expr, config);
+    private <T, K, R> Evaluator<T, K, R> compileEvaluator(CompilationUnit unit, EvaluatorInfo<T, K, R> info) {
+        String javaFQN = evaluatorFullQualifiedName(unit);
+        ClassManager clsManager = info.classManager();
+        if (clsManager == null) {
+            clsManager = new ClassManager();
+        }
 
-        return compileEvaluator(unit, config);
+        compileEvaluatorClass(clsManager, info.classLoader(), unit, javaFQN);
+
+        Class<Evaluator<T, K, R>> evaluatorDefinition = clsManager.getClass(javaFQN);
+
+        Evaluator<T, K, R> evaluator = createEvaluatorInstance(evaluatorDefinition);
+
+        return evaluator;
     }
 
-    private CompilationUnit compilePojoEvaluatorNoLoad(String expr, ContextObjectValues config) {
-        CompilationUnit unit = compilePojoEvaluatorNoLoad(expr, config);
 
-        return unit;
-    }
-
-    public PojoEvaluator compileRootObjectEvaluator(ClassManager classManager, String expression,
-                                                    Class rootClass, String rootGenerics,
-                                                    Class outClass, String outGenerics,
-                                                    Set<String> imports, ClassLoader classLoader) {
-        CompilationUnit unit = compileRootObjectEvaluatorNoLoad(expression,
-                                                                rootClass, rootGenerics,
-                                                                outClass, outGenerics,
-                                                                imports);
-
-        return compileEvaluator(classManager, classLoader, unit);
-    }
-
-    private <T> T compileEvaluator(CompilationUnit unit, BaseValues baseConfig) {
-        return compileEvaluator(baseConfig.classManager(), baseConfig.classLoader(), unit);
-    }
     private <T> T compileEvaluator(ClassManager classManager, ClassLoader classLoader, CompilationUnit unit) {
         String javaFQN = evaluatorFullQualifiedName(unit);
 
@@ -100,65 +178,8 @@ public class MVELCompiler {
 
         Class<T> evaluatorDefinition = classManager.getClass(javaFQN);
         T evaluator = createEvaluatorInstance(evaluatorDefinition);
+
         return evaluator;
-    }
-
-    public CompilationUnit compileMapEvaluatorNoLoad(String expression,
-                                                     Map<String, Type> types,
-                                                     Set<String> imports,
-                                                     String... returnVars) {
-        TranspiledResult input = MVELTranspiler.transpile(expression, imports, types);
-
-        return new CompilationUnitGenerator(input.getTranspilerContext().getParser()).createMapEvaluatorUnit(expression, input, types, returnVars);
-    }
-
-    public CompilationUnit compileArrayEvaluatorNoLoad(String expression,
-                                                       Declaration[] types,
-                                                       Set<String> imports,
-                                                       String... returnVars) {
-
-        Map<String, Type> typeMap = Arrays.stream(types).collect(Collectors.toMap(v -> v.getName(), v -> Type.type(v.getClazz(), v.getGenerics())));
-        TranspiledResult input = MVELTranspiler.transpile(expression, imports, typeMap);
-
-        return new CompilationUnitGenerator(input.getTranspilerContext().getParser()).createArrayEvaluatorUnit(expression, input, types, returnVars);
-    }
-
-    public CompilationUnit compilePojoEvaluatorNoLoad(String expression,
-                                                      Class contextClass,
-                                                      Class outClass,
-                                                      String[] vars,
-                                                      Set<String> imports) {
-        Map<String, Type> map = new HashMap<>();
-        Map<String, Method> methods = new HashMap<>();
-        for (String var : vars) {
-            Method method = getMethod(contextClass, var);
-
-            if (method == null) {
-                throw new RuntimeException("Unable to determine type for variable '" + var + "'");
-            }
-            methods.put(var, method);
-            int nameEnd = method.getReturnType().getCanonicalName().length();
-            map.put(var, Type.type(method.getReturnType(), method.getGenericReturnType().getTypeName().substring(nameEnd)));
-        }
-
-        TranspiledResult input = MVELTranspiler.transpile(expression, imports, map);
-
-        return new CompilationUnitGenerator(input.getTranspilerContext().getParser()).createPojoEvaluatorUnit(expression, input, contextClass, outClass, methods);
-    }
-
-    public CompilationUnit compileRootObjectEvaluatorNoLoad(String expression,
-                                                            Class rootClass,
-                                                            String rootGenerics,
-                                                            Class outClass,
-                                                            String outGenerics,
-                                                            Set<String> imports) {
-        Map<String, Type> types = new HashMap<>();
-        types.put("___this", Type.type(rootClass, rootGenerics));
-
-        TranspiledResult input = MVELTranspiler.transpile(expression, imports, types);
-
-        return new CompilationUnitGenerator(input.getTranspilerContext().getParser()).createRootObjectEvaluatorUnit(expression, input, rootClass,
-                                                                                                                    rootGenerics, outClass, outGenerics);
     }
 
     public Method getMethod(Class contextClass, String var)  {

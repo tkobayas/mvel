@@ -20,85 +20,61 @@ import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.ImportDeclaration;
 import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
-import com.github.javaparser.ast.body.FieldDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.stmt.BlockStmt;
 import com.github.javaparser.ast.stmt.Statement;
-import org.mvel3.parser.printer.MVELToJavaRewriter;
-import org.mvel3.transpiler.context.Declaration;
 import org.mvel3.transpiler.context.TranspilerContext;
 
-import java.util.List;
 import java.util.Set;
 
 import static org.mvel3.parser.printer.PrintUtil.printNode;
 
 public class TranspiledBlockResult implements TranspiledResult {
 
-    private List<Statement> statements;
+    private CompilationUnit unit;
 
-    private BlockStmt rewrittenStmt;
-    private NodeList<ImportDeclaration> imports;
+    private ClassOrInterfaceDeclaration clazz;
+    private MethodDeclaration method;
 
-    private TranspilerContext context;
+    private TranspilerContext<?, ?, ?> context;
 
-    public TranspiledBlockResult(List<Statement> statements, TranspilerContext context) {
-        this.statements = statements;
+    public TranspiledBlockResult(CompilationUnit unit, ClassOrInterfaceDeclaration clazz, MethodDeclaration method, TranspilerContext context) {
+        this.unit = unit;
+        this.clazz = clazz;
+        this.method = method;
         this.context = context;
     }
 
-    public String asString() {
-        getBlock();
+    public String methodBodyAsString() {
+        StringBuilder sbuilder = new StringBuilder();
+        NodeList<Statement> stmts = method.getBody().get().getStatements();
+        int subListStart = context.getInputs().size();
+        if ( !context.getEvaluatorInfo().rootDeclaration().type().isVoid()) {
+            // root vars are not assigned at start, so remove that from the count
+            subListStart--;
+        }
+        for (Statement stmt : stmts.subList(subListStart, stmts.size())) {
+            sbuilder.append(printNode(stmt, context.getTypeSolver()));
+        }
 
-        return printNode(rewrittenStmt, context.getTypeSolver());
+        return sbuilder.toString();
     }
 
     @Override
     public BlockStmt getBlock() {
-        rewriteBlock();
-        return rewrittenStmt;
+        return method.getBody().get();
     }
 
-    public void rewriteBlock() {
-        if (rewrittenStmt == null) {
+    public CompilationUnit getUnit() {
+        return context.getUnit();
+    }
 
-            CompilationUnit unit = new CompilationUnit();
-            context.setUnit(unit);
-
-            context.getImports().stream().forEach(s -> unit.addImport(s));
-            context.getStaticImports().stream().forEach(s -> unit.addImport(s, true, false));
-
-            imports = unit.getImports();
-
-            ClassOrInterfaceDeclaration cls = unit.addClass("DummyClass");
-
-            context.getInputs().stream().forEach(var -> {
-                Declaration declr = context.getDeclarations().get(var);
-                cls.addPrivateField(declr.getClazz().getCanonicalName() + declr.getGenerics(), var);
-            });
-
-            MethodDeclaration method = cls.addMethod("dummyMethod");
-
-            if (statements.size() == 1 && statements.get(0) instanceof BlockStmt) {
-                rewrittenStmt = (BlockStmt) statements.get(0);
-            } else {
-                NodeList<Statement> nodeList = NodeList.nodeList(statements);
-                rewrittenStmt = new BlockStmt(nodeList);
-            }
-
-            method.setBody(rewrittenStmt);
-
-            context.getSymbolResolver().inject(unit);
-
-            MVELToJavaRewriter rewriter = new MVELToJavaRewriter(context);
-
-
-            rewriter.rewriteChildren(rewrittenStmt);
-        }
+    public ClassOrInterfaceDeclaration getClassDeclaration() {
+        return clazz;
     }
 
     public NodeList<ImportDeclaration> getImports() {
-        return imports;
+        return unit.getImports();
     }
 
     @Override
@@ -113,7 +89,7 @@ public class TranspiledBlockResult implements TranspiledResult {
     @Override
     public String toString() {
         return "ParsingResult{" +
-               "statements='" + asString() + '\'' +
+               "statements='" + methodBodyAsString() + '\'' +
                '}';
     }
 }

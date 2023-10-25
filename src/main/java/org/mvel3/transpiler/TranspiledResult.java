@@ -16,6 +16,7 @@
 
 package org.mvel3.transpiler;
 
+import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.ImportDeclaration;
 import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.stmt.BlockStmt;
@@ -27,7 +28,9 @@ public interface TranspiledResult {
 
     BlockStmt getBlock();
 
-    public void rewriteBlock();
+    default CompilationUnit getUnit() {
+        throw new UnsupportedOperationException();
+    }
 
     NodeList<ImportDeclaration> getImports();
 
@@ -37,5 +40,5 @@ public interface TranspiledResult {
     public TranspilerContext getTranspilerContext();
 
 
-    Object asString();
+    Object methodBodyAsString();
 }

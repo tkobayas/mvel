@@ -16,36 +16,56 @@
 
 package org.mvel3.transpiler.context;
 
-import java.util.Objects;
+import org.mvel3.Type;
 
-public class Declaration {
-    private String name;
-    private Class<?> clazz;
+import java.util.Map;
+import java.util.stream.Collectors;
 
-    private String generics = "";
+public class Declaration<T> {
+    private final String name;
 
-    public Declaration(String name, Class<?> clazz) {
-        this.name = name;
-        this.clazz = clazz;
-        this.generics = "";
+    private final Type<T> type;
+
+    public static <T> Declaration of(String name, Class<T> clazz) {
+        return new Declaration(name, clazz);
     }
 
-    public Declaration(String name, Class<?> clazz, String generics) {
-        this.name = name;
-        this.clazz = clazz;
-        this.generics = (generics != null) ? generics : "";
+    public static <T> Declaration of(String name, Type<T> type) {
+        return new Declaration(name, type);
     }
 
-    public String getName() {
+    public static Declaration[] from(Map<String, Type> types) {
+        Declaration[]  declrs = types.entrySet().stream().map(e -> Declaration.of(e.getKey(), e.getValue()))
+                                     .collect(Collectors.toList()).toArray(new Declaration[0]);
+        return declrs;
+    }
+
+    public Declaration(String name, Type type) {
+        this.name = name;
+        this.type = type;
+    }
+
+    public static <T> Declaration of(String name, Class<T> clazz, String generics) {
+        return new Declaration(name, clazz, generics);
+    }
+
+    public Declaration(String name, Class<T> clazz) {
+        this(name, clazz,null);
+    }
+
+    public Declaration(String name, Class<T> clazz, String generics) {
+        this.name = name;
+        this.type = Type.type(clazz, generics);
+    }
+
+    public String name() {
         return name;
     }
+    public Type<T> type() { return type; }
 
-    public Class<?> getClazz() {
-        return clazz;
-    }
-
-    public String getGenerics() {
-        return generics;
+    @Deprecated
+    public Class<T> clazz() {
+        return type.getClazz();
     }
 
     @Override
@@ -62,17 +82,13 @@ public class Declaration {
         if (!name.equals(that.name)) {
             return false;
         }
-        if (!clazz.equals(that.clazz)) {
-            return false;
-        }
-        return Objects.equals(generics, that.generics);
+        return type.equals(that.type);
     }
 
     @Override
     public int hashCode() {
         int result = name.hashCode();
-        result = 31 * result + clazz.hashCode();
-        result = 31 * result + (generics != null ? generics.hashCode() : 0);
+        result = 31 * result + type.hashCode();
         return result;
     }
 
@@ -80,8 +96,8 @@ public class Declaration {
     public String toString() {
         return "Declaration{" +
                "name='" + name + '\'' +
-               ", clazz=" + clazz +
-               ", annotations='" + generics + '\'' +
+               ", type=" + type +
                '}';
     }
+
 }

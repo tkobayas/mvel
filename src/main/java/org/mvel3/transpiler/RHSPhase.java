@@ -202,11 +202,12 @@ public class RHSPhase extends DrlGenericVisitorWithDefaults<TypedExpression, Con
     }
 
     private Optional<TypedExpression> asDeclaration(SimpleName n) {
-        Optional<Declaration> typeFromDeclarations = mvelTranspilerContext.findDeclarations(n.asString());
-        return typeFromDeclarations.map(d -> {
-            Class<?> clazz = d.getClazz();
-            return new SimpleNameTExpr(n.asString(), clazz);
-        });
+//        Optional<Declaration> typeFromDeclarations = mvelTranspilerContext.findDeclarations(n.asString());
+//        return typeFromDeclarations.map(d -> {
+//            Class<?> clazz = d.getClazz();
+//            return new SimpleNameTExpr(n.asString(), clazz);
+//        });
+        return null;
     }
 
     private Optional<TypedExpression> asEnum(SimpleName n) {
@@ -229,10 +230,11 @@ public class RHSPhase extends DrlGenericVisitorWithDefaults<TypedExpression, Con
     }
 
     private Optional<TypedExpression> asPropertyAccessorOfRootPattern(SimpleName n) {
-        Optional<Class<?>> scopeType = mvelTranspilerContext.getRootObject();
-        Optional<Method> optAccessor = scopeType.flatMap(t -> ofNullable(getAccessor(classFromType(t), n.asString())));
-
-        return map2(mvelTranspilerContext.createRootTypePrefix(), optAccessor, FieldToAccessorTExpr::new);
+//        Optional<Class<?>> scopeType = mvelTranspilerContext.getRootObject();
+//        Optional<Method> optAccessor = scopeType.flatMap(t -> ofNullable(getAccessor(classFromType(t), n.asString())));
+//
+//        return map2(mvelTranspilerContext.createRootTypePrefix(), optAccessor, FieldToAccessorTExpr::new);
+        return null;
     }
 
     @Override

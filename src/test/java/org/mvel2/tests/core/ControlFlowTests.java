@@ -1,6 +1,6 @@
 package org.mvel2.tests.core;
 
-import org.mvel2.EvaluatorConfig.RootObjectConfigBuilder;
+import org.mvel2.EvaluatorBuilder.ContextInfoBuilder;
 import org.mvel2.MVEL;
 import org.mvel2.ParserConfiguration;
 import org.mvel2.ParserContext;
@@ -8,6 +8,8 @@ import org.mvel2.compiler.ExecutableStatement;
 import org.mvel2.tests.core.res.Base;
 import org.mvel2.tests.core.res.Foo;
 import org.mvel3.TranspilerTest;
+import org.mvel3.Type;
+import org.mvel3.transpiler.context.Declaration;
 
 import java.util.*;
 import java.io.Serializable;
@@ -204,7 +206,7 @@ public class ControlFlowTests extends AbstractTest {
     ExecutableStatement stmt = (ExecutableStatement) MVEL.compileExpression(str, pctx);
 
     Map vars = new HashMap();
-    assertEquals(new Integer(100), MVEL.executeExpression(stmt, vars));
+    assertEquals(Integer.valueOf(100), MVEL.executeExpression(stmt, vars));
   }
 
   public void testEmptyLoopSemantics() {
@@ -358,30 +360,30 @@ public class ControlFlowTests extends AbstractTest {
     propertyMap.put("GEBDAT", c1.getTime());
     objectMap.put("EV_VI_ANT1", propertyMap);
 
-    //objectMap.get("EV_VI_ANT1").get("GEBDAT").getTime()
-
     TranspilerTest tester = new TranspilerTest() {};
     tester.test(ctx -> {
           ctx.addImport("java.util.Date");
-          ctx.setRootObject(Map.class,"<String, Map<String, Date>>", "__this");
+          ctx.setVariableInfo(ContextInfoBuilder.create(Type.type(Map.class, "<String, Map<String, Date>>"))
+                                                //.addDeclaration(Declaration.of("context", Type.type(Map.class, "<String, Map<String, Date>>" )))
+                                                               );
+
+          ctx.setRootDeclaration(Declaration.of("context", Type.type(Map.class, "<String, Map<String, Date>>")));
         },
-        "{ return new org.mvel2.tests.core.res.PDFFieldUtil().calculateAge(EV_VI_ANT1.GEBDAT) >= 25 ? 'Y' : 'N';}",
-        "{ return new org.mvel2.tests.core.res.PDFFieldUtil().calculateAge(__this.get(\"EV_VI_ANT1\").get(\"GEBDAT\"))>= 25 ? 'Y' : 'N';}\n"
+        "return new org.mvel2.tests.core.res.PDFFieldUtil().calculateAge(EV_VI_ANT1.GEBDAT) >= 25 ? 'Y' : 'N';",
+        "return new org.mvel2.tests.core.res.PDFFieldUtil().calculateAge(context.get(\"EV_VI_ANT1\").get(\"GEBDAT\"))>= 25 ? 'Y' : 'N';\n"
         );
 
-
-    RootObjectConfigBuilder.create()
-                           .root(Map.class, "<String, Map<String, Date>>")
-                           .outClass(char.class);
-
     //return org.mvel3.MVEL.get().executeExpression(actualExpr, Collections.emptySet(), (Map<String, Object>) map);
-//
-//
-//    assertEquals('N',
-//        testCompiledSimple(
-//                "new org.mvel2.tests.core.res.PDFFieldUtil().calculateAge(EV_VI_ANT1.GEBDAT) >= 25 ? 'Y' : 'N'",
-//            //"new org.mvel2.tests.core.res.PDFFieldUtil().calculateAge((java.util.Date)EV_VI_ANT1[\"GEBDAT\"]) >= 25 ? 'Y' : 'N'",
-//            objectMap));
+
+
+    assertEquals('N',
+        testCompiledSimple(
+                "new org.mvel2.tests.core.res.PDFFieldUtil().calculateAge(EV_VI_ANT1.GEBDAT) >= 25 ? 'Y' : 'N'",
+            //"new org.mvel2.tests.core.res.PDFFieldUtil().calculateAge((java.util.Date)EV_VI_ANT1[\"GEBDAT\"]) >= 25 ? 'Y' : 'N'",
+            objectMap));
+  }
+  public java.lang.Object eval(java.util.Map<String, Map<String, Date>> context) {
+    return new org.mvel2.tests.core.res.PDFFieldUtil().calculateAge(context.get("EV_VI_ANT1").get("GEBDAT")) >= 25 ? 'Y' : 'N';
   }
 
   public void testSubEvaluation() {

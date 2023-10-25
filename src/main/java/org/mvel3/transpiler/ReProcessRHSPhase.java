@@ -92,14 +92,15 @@ public class ReProcessRHSPhase extends DrlGenericVisitorWithDefaults<Optional<Ty
 
     @Override
     public Optional<TypedExpression> visit(NameExpr n, Context context) {
-        if(mvelTranspilerContext
-                .findDeclarations(n.toString())
-                .filter(d -> d.getClazz() != BigDecimal.class)
-                .isPresent()) { // avoid wrapping BigDecimal declarations
-            return convertWhenLHSISBigDecimal(() -> new UnalteredTypedExpression(n), context);
-        } else {
-            return Optional.empty();
-        }
+//        if(mvelTranspilerContext
+//                .findDeclarations(n.toString())
+//                .filter(d -> d.getClazz() != BigDecimal.class)
+//                .isPresent()) { // avoid wrapping BigDecimal declarations
+//            return convertWhenLHSISBigDecimal(() -> new UnalteredTypedExpression(n), context);
+//        } else {
+//            return Optional.empty();
+//        }
+        return null;
     }
 
     private Optional<TypedExpression> convertWhenLHSISBigDecimal(Supplier<TypedExpression> conversionFunction, Context context) {

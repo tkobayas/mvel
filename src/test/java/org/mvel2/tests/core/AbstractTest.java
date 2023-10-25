@@ -271,8 +271,7 @@ public abstract class AbstractTest extends TestCase {
   }
 
   protected static Object testCompiledSimple(String ex, Map map) {
-    String actualExpr = "{ return " + ex + ";}";
-    return org.mvel3.MVEL.get().executeExpression(actualExpr, Collections.emptySet(), (Map<String, Object>) map);
+    return org.mvel3.MVEL.get().executeExpression(ex, Collections.emptySet(), (Map<String, Object>) map);
   }
 
   protected static Object testCompiledSimple(String ex, Object base, Map map) {

@@ -44,7 +44,7 @@ public class ConstraintTranspiler {
     }
 
     public TranspiledExpressionResult compileExpression(Expression parsedExpression) {
-        VariableAnalyser analyser = new VariableAnalyser(mvelTranspilerContext.getDeclarations().keySet());
+        VariableAnalyser analyser = new VariableAnalyser(mvelTranspilerContext.getEvaluatorInfo().allVars().keySet());
         parsedExpression.accept(analyser, null);
 
         // Avoid processing the LHS as it's not present while compiling an expression

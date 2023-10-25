@@ -103,16 +103,17 @@ public class LHSPhase extends DrlGenericVisitorWithDefaults<TypedExpression, Voi
 
     @Override
     public TypedExpression visit(DrlNameExpr n, Void arg) {
-        logPhase("DrlNameExpr {}", n);
-
-        String variableName = printNode(n);
-        Optional<Declaration> declaration = mvelTranspilerContext.findDeclarations(variableName);
-
-        return declaration.<TypedExpression>map(d -> new SimpleNameTExpr(n.getNameAsString(), d.getClazz()))
-                .orElseGet(() -> {
-                    mvelTranspilerContext.addDeclaration(variableName, getRHSType(rhs));
-                    return new VariableDeclaratorTExpr(n, variableName, getRHSType(rhs), rhs);
-                });
+//        logPhase("DrlNameExpr {}", n);
+//
+//        String variableName = printNode(n);
+//        Optional<Declaration> declaration = mvelTranspilerContext.findDeclarations(variableName);
+//
+//        return declaration.<TypedExpression>map(d -> new SimpleNameTExpr(n.getNameAsString(), d.getClazz()))
+//                .orElseGet(() -> {
+//                    mvelTranspilerContext.addDeclaration(variableName, getRHSType(rhs));
+//                    return new VariableDeclaratorTExpr(n, variableName, getRHSType(rhs), rhs);
+//                });
+        return null;
     }
 
     @Override
@@ -298,7 +299,7 @@ public class LHSPhase extends DrlGenericVisitorWithDefaults<TypedExpression, Voi
         String variableName = n.getName().asString();
         Class<?> type = getRHSorLHSType(n);
 
-        mvelTranspilerContext.addDeclaration(variableName, type);
+//        mvelTranspilerContext.addDeclaration(variableName, type);
 
 //        String declaredType = null;
 //

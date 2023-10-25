@@ -159,7 +159,7 @@ public class StatementVisitor extends DrlGenericVisitorWithDefaults<TypedExpress
     }
 
     private boolean isDeclarationIterable(Declaration declaration) {
-        Class<?> declarationClazz = declaration.getClazz();
+        Class<?> declarationClazz = declaration.clazz();
         return Iterable.class.isAssignableFrom(declarationClazz);
     }
 

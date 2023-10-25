@@ -16,6 +16,7 @@
 
 package org.mvel3.transpiler;
 
+import org.mvel2.EvaluatorBuilder;
 import org.mvel3.transpiler.context.TranspilerContext;
 
 import java.util.function.Consumer;
@@ -29,7 +30,7 @@ public class PreprocessTranspiler {
 
     private static final PreprocessPhase preprocessPhase = new PreprocessPhase();
 
-    public TranspiledBlockResult compile(String mvelBlock, Consumer<TranspilerContext> updateContextFunc) {
+    public <T, K,R> TranspiledBlockResult compile(String mvelBlock, Consumer<EvaluatorBuilder<T, K,R>> updateContextFunc) {
 //        Set<String> imports = new HashSet<>();
 //        imports.add("java.util.List");
 //        imports.add("java.util.ArrayList");

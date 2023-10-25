@@ -4107,7 +4107,20 @@ Expression PrimarySuffixWithoutSuper(Expression scope):
             }
         }
       ]
- |
+     |
+        "?."
+            LOOKAHEAD( [ TypeArguments() ] Identifier() )
+            [ typeArgs = TypeArguments() ]
+            name = SimpleName()
+            [ args = Arguments() {hasArgs=true;} ]
+            {
+                if (hasArgs) {
+                      ret = parseMethodExprOrHalfBinary(range(scope, token()), scope, typeArgs.list, name, args, true);
+                } else {
+                    ret =  new NullSafeFieldAccessExpr(range(scope, token()), scope, typeArgs.list, name);
+                }
+            }
+     |
     "["
     ret = Expression()
     "]"
@@ -4115,9 +4128,6 @@ Expression PrimarySuffixWithoutSuper(Expression scope):
 )
 { return ret; }
 }
-
-
-
 
 /**
  * Note that a Long Literal is defined as an {@code IntegerLiteral}, suffixed by "L"

@@ -16,42 +16,45 @@
 
 package org.mvel3;
 
-import org.mvel3.transpiler.MVELTranspiler;
+import org.mvel2.EvaluatorBuilder;
+import org.mvel2.EvaluatorBuilder.ContextInfoBuilder;
 import org.mvel3.transpiler.TranspiledResult;
-import org.mvel3.transpiler.context.TranspilerContext;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
+import java.util.Map;
 import java.util.function.Consumer;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 public interface TranspilerTest {
 
-    default void test(Consumer<TranspilerContext> contextUpdater,
-                      String inputExpression,
-                      String expectedResult,
-                      Consumer<TranspiledResult> resultAssert) {
-        Consumer<TranspilerContext> outerContextUpdater = ctx -> {
-            contextUpdater.accept(ctx);
+    default void test(Consumer<EvaluatorBuilder<Map, Void,Object>> contextUpdater,
+                                        String inputExpression,
+                                        String expectedResult,
+                                        Consumer<TranspiledResult> resultAssert) {
+        EvaluatorBuilder<Map, Void, Object> builder = new EvaluatorBuilder<>();
+        builder.setExpression(inputExpression);
+        builder.addImport(java.util.List.class.getCanonicalName());
+        builder.addImport(java.util.ArrayList.class.getCanonicalName());
+        builder.addImport(java.util.HashMap.class.getCanonicalName());
+        builder.addImport(java.util.Map.class.getCanonicalName());
+        builder.addImport(BigDecimal.class.getCanonicalName());
+        builder.addImport(BigInteger.class.getCanonicalName());
+        builder.addImport(Address.class.getCanonicalName());
+        builder.addImport(Person.class.getCanonicalName());
+        builder.addImport(Gender.class.getCanonicalName());
 
-            ctx.addImport(java.util.List.class.getCanonicalName());
-            ctx.addImport(java.util.ArrayList.class.getCanonicalName());
-            ctx.addImport(java.util.HashMap.class.getCanonicalName());
-            ctx.addImport(java.util.Map.class.getCanonicalName());
-            ctx.addImport(BigDecimal.class.getCanonicalName());
-            ctx.addImport(BigInteger.class.getCanonicalName());
-            ctx.addImport(Address.class.getCanonicalName());
-            ctx.addImport(Person.class.getCanonicalName());
-            ctx.addImport(Gender.class.getCanonicalName());            
-        };
+        builder.setVariableInfo(ContextInfoBuilder.create(Type.type(Map.class)));
+        builder.setOutType(Type.type(Object.class));
 
-        TranspiledResult compiled = MVELTranspiler.transpile(inputExpression, Collections.emptyMap(), outerContextUpdater);
+        contextUpdater.accept(builder);
 
-        verifyBodyWithBetterDiff(expectedResult, compiled.asString());
+        TranspiledResult compiled = new MVELCompiler().transpile(builder.build());
+
+        verifyBodyWithBetterDiff(expectedResult, compiled.methodBodyAsString());
         resultAssert.accept(compiled);
     }
 
@@ -70,7 +73,7 @@ public interface TranspilerTest {
         }, inputExpression, expectedResult, resultAssert);
     }
 
-    default void test(Consumer<TranspilerContext> testFunction,
+    default <K,R> void test(Consumer<EvaluatorBuilder<Map, Void, Object>> testFunction,
                       String inputExpression,
                       String expectedResult) {
         test(testFunction, inputExpression, expectedResult, t -> {

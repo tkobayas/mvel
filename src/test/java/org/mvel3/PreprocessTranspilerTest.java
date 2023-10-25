@@ -16,12 +16,13 @@
 
 package org.mvel3;
 
+import org.mvel2.EvaluatorBuilder;
 import org.mvel3.transpiler.TranspiledBlockResult;
 import org.mvel3.transpiler.PreprocessTranspiler;
 import org.mvel3.transpiler.TranspiledResult;
-import org.mvel3.transpiler.context.TranspilerContext;
 import org.junit.Test;
 
+import java.util.Map;
 import java.util.function.Consumer;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -111,12 +112,12 @@ public class PreprocessTranspilerTest implements TranspilerTest {
     }
 
     @Override
-    public void test(Consumer<TranspilerContext> updateContextFunc,
+    public void test(Consumer<EvaluatorBuilder<Map, Void, Object>> contextUpdater,
                       String inputExpression,
                       String expectedResult,
                       Consumer<TranspiledResult> resultAssert) {
-        TranspiledBlockResult compiled = new PreprocessTranspiler().compile(inputExpression, updateContextFunc);
-        assertThat(compiled.asString()).isEqualToIgnoringWhitespace(expectedResult);
+        TranspiledBlockResult compiled = new PreprocessTranspiler().compile(inputExpression, contextUpdater);
+        assertThat(compiled.methodBodyAsString()).isEqualToIgnoringWhitespace(expectedResult);
         resultAssert.accept(compiled);
     }
 }

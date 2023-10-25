@@ -16,29 +16,6 @@
 
 package org.mvel3;
 
-public class MapEvaluatorTemplate<R> implements Evaluator<java.util.Map<String, Object>, Void, R> {
-
-    @Override
-    public R eval(java.util.Map<String, Object> map) {
-        // declarations are on top
-        int usedBinding;
-
-        // binding assignment
-        {
-            usedBinding = (int) map.get("usedBinding");
-        }
-
-        // execute MVEL here
-        {
-
-        }
-
-        // repopulate map
-        {
-            map.put("usedBinding", usedBinding);
-        }
-
-        return (R) usedBinding;
-    }
-
+public interface RootObjectEvaluator<T, R> {
+    R eval(T pojo);
 }

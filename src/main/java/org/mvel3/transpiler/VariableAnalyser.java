@@ -8,7 +8,7 @@ import java.util.Set;
 
 public class VariableAnalyser extends DrlVoidVisitorAdapter<Void> {
 
-    private Set<String> available = new HashSet<>();
+    private Set<String> available;
     private Set<String> used = new HashSet<>();
 
     private Set<String> found = new HashSet<>();

@@ -19,38 +19,21 @@
 
 package org.mvel3;
 
-import org.mvel2.EvaluatorConfig.ContextObjectValues;
+import org.mvel2.EvaluatorBuilder;
+import org.mvel2.EvaluatorBuilder.ContextInfoBuilder;
+import org.mvel2.EvaluatorBuilder.EvaluatorInfo;
 import org.mvel3.transpiler.context.Declaration;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 public class MVEL {
-    public static class Type {
-        private final Class clazz;
-
-        private final String generics;
-
-        public Type(Class clazz, String generics) {
-            this.clazz = clazz;
-            this.generics = generics;
-        }
-
-        public static Type type(Class clazz) {
-            return new Type(clazz,"");
-        }
-        public static Type type(Class clazz, String generics) {
-            return new Type(clazz, generics);
-        }
-
-        public Class getClazz() {
-            return clazz;
-        }
-
-        public String getGenerics() {
-            return generics;
-        }
+    public <T, K, R> Evaluator<T, K, R> compile(EvaluatorInfo<T, K, R> evalInfo) {
+        MVELCompiler compiler = new MVELCompiler();
+        Evaluator<T, K, R> eval = compiler.compile(evalInfo);
+        return eval;
     }
 
     private static MVEL instance;
@@ -65,71 +48,89 @@ public class MVEL {
 
     ClassManager clsManager = new ClassManager();
 
-    public MapEvaluator compileMapEvaluator(final String providedExpr, final Set<String> imports, final Map<String, Type> types, String... returnVars) {
+    public <T extends Map, Void, R> Evaluator<T, Void, R> compileMapEvaluator(final String providedExpr, final Class<R> outClass, final Set<String> imports, final Map<String, Type> types) {
         String actualExpression = maybeWrap(providedExpr);
         MVELCompiler MVELCompiler = new MVELCompiler();
-        MapEvaluator evaluator = MVELCompiler.compileMapEvaluator(clsManager, actualExpression,
-                                                                  types, imports, MVELCompiler.getClass().getClassLoader(), returnVars);
+        EvaluatorBuilder<T, Void, R> eval = new EvaluatorBuilder<>();
+        eval.setClassManager(clsManager).setClassLoader(ClassLoader.getSystemClassLoader())
+            .setExpression(actualExpression)
+            .setImports(imports)
+            .setVariableInfo(ContextInfoBuilder.create(Type.type(Map.class, "<String, Object>"))
+                                               .setVars(Declaration.from(types)))
+            .setOutType(Type.type(outClass));
+
+        Evaluator<T, Void, R> evaluator = MVELCompiler.compile(eval.build());
 
         return  evaluator;
     }
 
-    public ArrayEvaluator compileArrayEvaluator(final String providedExpr, final Set<String> imports, final Declaration[] types, String... returnVars) {
+    public <T extends List, Void, R> Evaluator<T, Void, R> compileListEvaluator(final String providedExpr, Class<R> outClass, final Set<String> imports, final Declaration[] types) {
         String actualExpression = maybeWrap(providedExpr);
         MVELCompiler MVELCompiler = new MVELCompiler();
-        ArrayEvaluator evaluator = MVELCompiler.compileArrayEvaluator(clsManager, actualExpression,
-                                                                      types, imports, MVELCompiler.getClass().getClassLoader(),
-                                                                      returnVars);
+        EvaluatorBuilder<T, Void, R> eval = new EvaluatorBuilder<>();
+        eval.setClassManager(clsManager).setClassLoader(ClassLoader.getSystemClassLoader())
+            .setExpression(actualExpression)
+            .setImports(imports)
+            .setVariableInfo(ContextInfoBuilder.create(Type.type(List.class, "<Object>"))
+                                               .setVars(types))
+            .setOutType(Type.type(outClass));
+
+        Evaluator<T, Void, R> evaluator = MVELCompiler.compile(eval.build());
 
         return  evaluator;
     }
 
-    public <T, R> PojoEvaluator<T,R> compilePojoEvaluator(ContextObjectValues evalValues) {
-        String actualExpression = maybeWrap(evalValues.expression());
+    public <T, K, R> Evaluator<T, K, R> compilePojoEvaluator(EvaluatorInfo<T, K, R> info) {
         MVELCompiler MVELCompiler = new MVELCompiler();
-        PojoEvaluator evaluator = MVELCompiler.compilePojoEvaluator(clsManager, actualExpression,
-                                                                    evalValues.contextClass(), evalValues.outClass(), evalValues.vars(), evalValues.imports(),
-                                                                    MVELCompiler.getClass().getClassLoader());
+        Evaluator<T, K, R> evaluator = MVELCompiler.compile(info);
 
         return  evaluator;
     }
 
-    public <T, R> PojoEvaluator<T,R> compilePojoEvaluator(final String expr,
-                                                          final ContextObjectValues config) {
-        String actualExpression = maybeWrap(expr);
-        MVELCompiler MVELCompiler = new MVELCompiler();
-        PojoEvaluator evaluator = MVELCompiler.compilePojoEvaluator(actualExpression,
-                                                                    config);
-
-        return  evaluator;
-    }
-
-    public <T, R> PojoEvaluator<T,R> compileRootObjectEvaluator(final String providedExpr, Set<String> imports, Class<T> contextClass, Class<R> returnClass, String... vars) {
-        String actualExpression = maybeWrap(providedExpr);
-        MVELCompiler MVELCompiler = new MVELCompiler();
-        PojoEvaluator evaluator = MVELCompiler.compilePojoEvaluator(clsManager, actualExpression,
-                                                                    contextClass, returnClass, vars, imports,
-                                                                    MVELCompiler.getClass().getClassLoader());
-
-        return  evaluator;
-    }
+//    public <T, R> RootObjectEvaluator<T,R> compileRootObjectEvaluator(final RootObjectValues values) {
+//        String actualExpression = maybeWrap(values.expression());
+//        MVELCompiler MVELCompiler = new MVELCompiler();
+//        RootObjectEvaluator evaluator = MVELCompiler.compileRootObjectEvaluator(clsManager, actualExpression,
+//                                                                                values.rootClass(), values.rootGenerics(), values.outClass(), values.outGenerics(),
+//                                                                                values.imports(), MVELCompiler.getClass().getClassLoader());
+//
+//        return  evaluator;
+//    }
 
     public Object executeExpression(final String expression, Set<String> imports, final Map<String, Object> vars) {
         return executeExpression(expression, imports, vars, Object.class);
     }
 
-    public <T> T executeExpression(final String providedExpr, Set<String> imports, final Map<String, Object> vars,  Class<T> returnClass) {
-        String actualExpr = maybeWrap(providedExpr);
+    public <R> R executeExpression(final String expr, Set<String> imports, final Map<String, Object> vars,  Class<R> outClass) {
+        return executeExpression(expr, imports, new HashMap<>(), Type.type(outClass), vars);
+    }
 
-        Map<String, Type> types = new HashMap<>();
+    public <R> R executeExpression(final String expr, Set<String> imports,
+                                    final Map<String, Type<Object>> types,
+                                    Type<R> outType,
+                                    final Map<String, Object> vars) {
+
+
         for (Map.Entry<String, Object> o : vars.entrySet()) {
-            Class type = o.getValue() == null ? Object.class : o.getValue().getClass();
-            types.put(o.getKey(), Type.type(type));
+            if ( types.keySet().contains(o.getKey())) {
+                Class type = o.getValue() == null ? Object.class : o.getValue().getClass();
+                types.put(o.getKey(), Type.type(type));
+            }
         }
 
-        MapEvaluator mapEvaluator = compileMapEvaluator(actualExpr, imports, types);
+        MVELCompiler MVELCompiler = new MVELCompiler();
+        EvaluatorBuilder<Map<String, Object>, Void, R> eval = new EvaluatorBuilder<>();
 
-        return (T) mapEvaluator.eval(vars);
+        eval.setClassManager(clsManager).setClassLoader(ClassLoader.getSystemClassLoader())
+            .setExpression(expr)
+            .setImports(imports)
+            .setVariableInfo(ContextInfoBuilder.create(Type.type(Map.class, "<String, Object>"))
+                                               .setVars(types.values().toArray(new Declaration[0])))
+            .setOutType(outType);
+
+        Evaluator<Map<String, Object>, Void, R> evaluator = MVELCompiler.compile(eval.build());
+
+        return evaluator.eval(vars);
     }
 
     private static String maybeWrap(String providedExpr) {
@@ -139,5 +140,15 @@ public class MVEL {
             actualExpr = "return " + providedExpr + ";";
         }
         return actualExpr;
+    }
+
+    public static <T> T putMap(Map map, String key, T v) {
+        map.put(key, v);
+        return v;
+    }
+
+    public static <T> T setList(List list, int index, T v) {
+        list.set(index, v);
+        return v;
     }
 }
