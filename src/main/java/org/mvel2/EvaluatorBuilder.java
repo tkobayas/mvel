@@ -33,7 +33,7 @@ public class EvaluatorBuilder<T, K, R> {
 
     private int rootVarIndex = 0;
 
-    private Type<R> outType;
+    private Type<R> outType = Type.type(Void.class); // default no return
 
     private String expression;
 
@@ -41,10 +41,8 @@ public class EvaluatorBuilder<T, K, R> {
 
     public static <T, K, R> EvaluatorBuilder<T, K, R> create() {
         EvaluatorBuilder builder = new EvaluatorBuilder<>();
-        builder.setClassLoader(EvaluatorBuilder.class.getClassLoader());
         return builder;
     }
-
 
     public static <T, K, R> EvaluatorBuilder create(EvaluatorBuilder<T, K, R> template) {
         EvaluatorBuilder<T, K, R> builder = new EvaluatorBuilder<>();
@@ -58,6 +56,10 @@ public class EvaluatorBuilder<T, K, R> {
         builder.outType         = template.outType;
 
         return builder;
+    }
+
+    public EvaluatorBuilder() {
+        setClassLoader(EvaluatorBuilder.class.getClassLoader());
     }
 
     public ClassLoader getClassLoader() {
@@ -273,6 +275,22 @@ public class EvaluatorBuilder<T, K, R> {
 
             return allVars;
         }
+
+        @Override
+        public String toString() {
+            return "EvaluatorInfo{" +
+                   "classLoader=" + classLoader +
+                   ", classManager=" + classManager +
+                   ", imports=" + imports +
+                   ", staticImports=" + staticImports +
+                   ", outType=" + outType +
+                   ", variableInfo=" + variableInfo +
+                   ", rootDeclaration=" + rootDeclaration +
+                   ", rootVarIndex=" + rootVarIndex +
+                   ", expression='" + expression + '\'' +
+                   ", allVars=" + allVars +
+                   '}';
+        }
     }
 
     public static class ContextInfo<T> {
@@ -306,14 +324,23 @@ public class EvaluatorBuilder<T, K, R> {
             }
             return varNames;
         }
+
+        @Override
+        public String toString() {
+            return "ContextInfo{" +
+                   "type=" + type +
+                   ", vars=" + Arrays.toString(vars) +
+                   ", varNames=" + Arrays.toString(varNames) +
+                   '}';
+        }
     }
 
     public static class ContextInfoBuilder<T> {
         private Type   type;
         private List<Declaration> vars = Collections.emptyList();
 
-        public static <T> ContextInfoBuilder<T> create(Type<T> type) {
-            ContextInfoBuilder contextInfoBuilder = new ContextInfoBuilder<>();
+        public static <K> ContextInfoBuilder<K> create(Type<K> type) {
+            ContextInfoBuilder<K> contextInfoBuilder = new ContextInfoBuilder<>();
             contextInfoBuilder.type = type;
             return contextInfoBuilder;
         }

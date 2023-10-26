@@ -1,12 +1,15 @@
 package org.mvel2.tests.core;
 
+import org.mvel2.EvaluatorBuilder;
 import org.mvel2.EvaluatorBuilder.ContextInfoBuilder;
+import org.mvel2.EvaluatorBuilder.EvaluatorInfo;
 import org.mvel2.MVEL;
 import org.mvel2.ParserConfiguration;
 import org.mvel2.ParserContext;
 import org.mvel2.compiler.ExecutableStatement;
 import org.mvel2.tests.core.res.Base;
 import org.mvel2.tests.core.res.Foo;
+import org.mvel3.Evaluator;
 import org.mvel3.TranspilerTest;
 import org.mvel3.Type;
 import org.mvel3.transpiler.context.Declaration;
@@ -347,6 +350,22 @@ public class ControlFlowTests extends AbstractTest {
             "(testValue ? ('A' + 'B') : 'C')"));
   }
 
+  public static class X<T> {
+    Class cls;
+
+    public X(Class cls) {
+      this.cls = cls;
+    }
+    public static <K> X<K> type(Class cls) {
+      return new X<K>(cls);
+    }
+
+    static {
+      X<Map<String, Map<String, Object>>> o2 = new X<>(Map.class);
+      X<Map<String, Map<String, Object>>> o1 = X.type(Map.class);
+    }
+  }
+
   /**
    * Community provided test cases
    */
@@ -360,28 +379,40 @@ public class ControlFlowTests extends AbstractTest {
     propertyMap.put("GEBDAT", c1.getTime());
     objectMap.put("EV_VI_ANT1", propertyMap);
 
-    TranspilerTest tester = new TranspilerTest() {};
-    tester.test(ctx -> {
-          ctx.addImport("java.util.Date");
-          ctx.setVariableInfo(ContextInfoBuilder.create(Type.type(Map.class, "<String, Map<String, Date>>"))
-                                                //.addDeclaration(Declaration.of("context", Type.type(Map.class, "<String, Map<String, Date>>" )))
-                                                               );
+//    TranspilerTest tester = new TranspilerTest() {};
+//    tester.test(ctx -> {
+//          ctx.addImport("java.util.Date");
+//          ctx.setVariableInfo(ContextInfoBuilder.create(Type.type(Map.class, "<String, Map<String, Date>>")));
+//          ctx.setRootDeclaration(Declaration.of("context", Type.type(Map.class, "<String, Map<String, Date>>")));
+//        },
+//        "return new org.mvel2.tests.core.res.PDFFieldUtil().calculateAge(EV_VI_ANT1.GEBDAT) >= 25 ? 'Y' : 'N';",
+//        "return new org.mvel2.tests.core.res.PDFFieldUtil().calculateAge(context.get(\"EV_VI_ANT1\").get(\"GEBDAT\"))>= 25 ? 'Y' : 'N';\n"
+//        );
 
-          ctx.setRootDeclaration(Declaration.of("context", Type.type(Map.class, "<String, Map<String, Date>>")));
-        },
-        "return new org.mvel2.tests.core.res.PDFFieldUtil().calculateAge(EV_VI_ANT1.GEBDAT) >= 25 ? 'Y' : 'N';",
-        "return new org.mvel2.tests.core.res.PDFFieldUtil().calculateAge(context.get(\"EV_VI_ANT1\").get(\"GEBDAT\"))>= 25 ? 'Y' : 'N';\n"
-        );
+    Set<String> imports = new HashSet<>();
+    imports.add("java.util.Date");
+    imports.add("java.util.Map");
 
-    //return org.mvel3.MVEL.get().executeExpression(actualExpr, Collections.emptySet(), (Map<String, Object>) map);
+    EvaluatorBuilder<Map<String, Map<String, Date>>,
+                     Map<String, Map<String, Date>>,
+                     String> builder = EvaluatorBuilder.create();
+
+    builder.setImports(imports)
+             .setVariableInfo(ContextInfoBuilder.create(Type.type(Map.class, "<String, Map<String, Date>>")))
+             .setExpression("return new org.mvel2.tests.core.res.PDFFieldUtil().calculateAge(EV_VI_ANT1.GEBDAT) >= 25 ? \"Y\" : \"N\";")
+             .setRootDeclaration(Declaration.of("context", Type.type(Map.class, "<String, Map<String, Date>>")))
+             .setOutType(Type.type(String.class));
 
 
-    assertEquals('N',
-        testCompiledSimple(
-                "new org.mvel2.tests.core.res.PDFFieldUtil().calculateAge(EV_VI_ANT1.GEBDAT) >= 25 ? 'Y' : 'N'",
-            //"new org.mvel2.tests.core.res.PDFFieldUtil().calculateAge((java.util.Date)EV_VI_ANT1[\"GEBDAT\"]) >= 25 ? 'Y' : 'N'",
-            objectMap));
+    org.mvel3.MVEL mvel = new org.mvel3.MVEL();
+    Evaluator<Map<String, Map<String, Date>>,
+                     Map<String, Map<String, Date>>,
+                     String> evaluator = mvel.compile(builder.build());
+
+    assertEquals("N",
+                 evaluator.eval(objectMap));
   }
+
   public java.lang.Object eval2(java.util.Map<String, Map<String, Date>> context) {
     return new org.mvel2.tests.core.res.PDFFieldUtil().calculateAge(context.get("EV_VI_ANT1").get("GEBDAT")) >= 25 ? 'Y' : 'N';
   }

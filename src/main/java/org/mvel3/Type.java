@@ -1,24 +1,24 @@
 package org.mvel3;
 
 public class Type<T> {
-    private final Class<T> clazz;
+    private final Class clazz;
 
     private final String generics;
 
-    public Type(Class<T> clazz, String generics) {
+    public Type(Class clazz, String generics) {
         this.clazz = clazz;
         this.generics = generics != null ? generics : "";
     }
 
-    public static <T> Type<T> type(Class<T> clazz) {
+    public static <K> Type<K> type(Class clazz) {
         return new Type(clazz, "");
     }
 
-    public static <T> Type<T> type(Class<T> clazz, String generics) {
+    public static <K> Type<K> type(Class clazz, String generics) {
         return new Type(clazz, generics);
     }
 
-    public Class<T> getClazz() {
+    public Class getClazz() {
         return clazz;
     }
 
