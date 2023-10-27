@@ -173,7 +173,7 @@ public class MVELTranspiler {
         // Inject the "return" if one is needed and it's missing and it's a statement expression.
         // This will not check branchs of an if statement or for loop, those need explicit returns
         Statement stmt = method.getBody().get().getStatements().getLast().get();
-        if (!evalInfo.outType().isVoid() && stmt.isExpressionStmt()) {
+        if (!evalInfo.outType().isVoid() && stmt.isExpressionStmt() && method.getType() != null) {
             ReturnStmt returnStmt = new ReturnStmt(stmt.asExpressionStmt().getExpression());
             stmt.replace(returnStmt);
         }

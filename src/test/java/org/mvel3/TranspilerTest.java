@@ -48,7 +48,7 @@ public interface TranspilerTest {
         builder.addImport(Gender.class.getCanonicalName());
 
         builder.setVariableInfo(ContextInfoBuilder.create(Type.type(Map.class)));
-        builder.setOutType(Type.type(Object.class));
+        builder.setOutType(Type.type(Void.class));
 
         contextUpdater.accept(builder);
 

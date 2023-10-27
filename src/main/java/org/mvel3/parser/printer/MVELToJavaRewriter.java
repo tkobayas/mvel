@@ -9,6 +9,7 @@ import com.github.javaparser.ast.body.VariableDeclarator;
 import com.github.javaparser.ast.expr.AssignExpr.Operator;
 import com.github.javaparser.ast.expr.BinaryExpr;
 import com.github.javaparser.ast.expr.CastExpr;
+import com.github.javaparser.ast.expr.EnclosedExpr;
 import com.github.javaparser.ast.expr.Expression;
 import com.github.javaparser.ast.expr.FieldAccessExpr;
 import com.github.javaparser.ast.expr.AssignExpr;
@@ -230,7 +231,11 @@ public class MVELToJavaRewriter {
 
         ResolvedType sourceType = node.getExpression().calculateResolvedType();
         if (sourceType.isAssignableBy(targetType)) {
-            expr = node; // a normal casts suffices
+            // have to put into an () enclosure, as this was not in the original grammar due to #....#
+            EnclosedExpr enclosure = new EnclosedExpr();
+            node.replace(enclosure);
+            enclosure.setInner(node);
+            expr = enclosure; // a normal casts suffices
         } else {
             // else try coercion
             Optional<Expression> result = coercer.coerce(sourceType, node.getExpression(), targetType);

@@ -44,12 +44,8 @@ public class MVELTranspilerTest implements TranspilerTest {
 
     @Test
     public void testInlineCast1() {
-        //new java.util.Date(100)
-        ArrayList l = new ArrayList();
-
         test(ctx -> ctx.addDeclaration("l", List.class),
              "l#ArrayList#removeRange(0, 10);",
-             //"return l[0];",
              "((ArrayList)l).removeRange(0, 10);");
     }
 
@@ -70,9 +66,8 @@ public class MVELTranspilerTest implements TranspilerTest {
     @Test
     public void testInlineCoercion4() {
         test(ctx -> {
-                ctx.addDeclaration("l", Long.class);
-                ctx.addImport(java.util.Date.class.getCanonicalName());
-             },
+            ctx.addDeclaration("l", Long.class);
+            ctx.addImport(java.util.Date.class.getCanonicalName());},
              "var x = l#Date#;",
              "var x = new java.util.Date(l);");
     }
@@ -81,8 +76,7 @@ public class MVELTranspilerTest implements TranspilerTest {
     public void testInlineCoercion5() {
         test(ctx -> {
                  ctx.addDeclaration("l", Long.class);
-                 ctx.addImport(java.util.Date.class.getCanonicalName());
-             },
+                 ctx.addImport(java.util.Date.class.getCanonicalName());},
              "var x = l#Date#getTime();",
              "var x = new java.util.Date(l).getTime();");
     }
@@ -108,7 +102,8 @@ public class MVELTranspilerTest implements TranspilerTest {
              "$p.getParent().parent.name;",
              expectedJavaCode);
 
-        test(ctx -> ctx.addDeclaration("$p", Person.class),
+        test(ctx ->
+                 ctx.addDeclaration("$p", Person.class),
              "$p.parent.parent.name;",
              expectedJavaCode);
 
@@ -130,11 +125,11 @@ public class MVELTranspilerTest implements TranspilerTest {
     }
 
     @Test
-    public void testX() {
+    public void testGenericsOnListAccess() {
         // The city rewrite wouldn't work, if it didn't know the generics
         test(ctx -> ctx.addDeclaration("$p", Person.class),
-             "return $p.addresses[0].city + $p.addresses[1].city;",
-             "return $p.getAddresses().get(0).getCity() + $p.getAddresses().get(1).getCity();");
+             "$p.addresses[0].city + $p.addresses[1].city;",
+             "$p.getAddresses().get(0).getCity() + $p.getAddresses().get(1).getCity();");
     }
 
     @Test
@@ -157,8 +152,7 @@ public class MVELTranspilerTest implements TranspilerTest {
     @Test
     public void testPrimitiveWithBigDecimal() {
         for(Primitive p : CoerceRewriter.floatPrimitives) {
-            test(ctx -> {},
-                 "var x = 10B * " + p.toBoxedType() + ".MAX_VALUE;",
+            test("var x = 10B * " + p.toBoxedType() + ".MAX_VALUE;",
                  "var x = new java.math.BigDecimal(\"10\").multiply( BigDecimal.valueOf(" + p.toBoxedType() + ".MAX_VALUE), java.math.MathContext.DECIMAL128);");
         }
     }
@@ -166,8 +160,7 @@ public class MVELTranspilerTest implements TranspilerTest {
     @Test
     public void testBoxTypeWithBigDecimal() {
         for(Primitive p : CoerceRewriter.floatPrimitives) {
-            test(ctx -> {},
-                 "var x = 10B * " + p.toBoxedType() + ".valueOf(" + p.toBoxedType() + ".MAX_VALUE);",
+            test("var x = 10B * " + p.toBoxedType() + ".valueOf(" + p.toBoxedType() + ".MAX_VALUE);",
                  "var x = new java.math.BigDecimal(\"10\").multiply( BigDecimal.valueOf(" + p.toBoxedType() + ".valueOf(" + p.toBoxedType() + ".MAX_VALUE)), java.math.MathContext.DECIMAL128);");
         }
     }
@@ -505,9 +498,7 @@ public class MVELTranspilerTest implements TranspilerTest {
                 case "/" : method = "divide"; break;
             }
 
-            test(ctx -> {
-                     ctx.addDeclaration("p", Person.class);
-                 },
+            test(ctx -> ctx.addDeclaration("p", Person.class),
                  "var x = 10" + op + "p.ageAsBigInteger;",
                  "var x = p.getAgeAsBigInteger()." + method + "(BigInteger.valueOf(10));"
                 );
@@ -944,7 +935,7 @@ public class MVELTranspilerTest implements TranspilerTest {
 
     @Test
     public void testPromotionOfIntToBigDecimal() {
-        test("    BigDecimal result = 0B;" +
+        test( "    BigDecimal result = 0B;" +
                      "    int anotherVariable = 20;" +
                      "    result += anotherVariable;",
              "BigDecimal result = new java.math.BigDecimal(\"0\");\n" +
@@ -973,10 +964,7 @@ public class MVELTranspilerTest implements TranspilerTest {
 
     @Test
     public void testModifyMap() {
-        test(ctx -> {
-                 ctx.addDeclaration("$p", Person.class);
-                 ctx.addDeclaration("$p2", Person.class);
-             },
+        test(ctx -> ctx.addDeclaration("$p", Person.class),
              "modify ( $p )  { items = $p2.items };",
              "$p.setItems($p2.getItems());\n",
              result -> assertThat(allUsedBindings(result)).containsExactlyInAnyOrder("$p", "$p2"));
@@ -1105,8 +1093,7 @@ public class MVELTranspilerTest implements TranspilerTest {
 
     @Test
     public void testGetterRewriteInArgument() {
-        test(
-                "    var p = new Person(\"yoda\");\n" +
+        test( "    var p = new Person(\"yoda\");\n" +
                 "    p.age = 100; \n" +
                 "    System.out.println(p.age); \n",
                 "    var p = new Person(\"yoda\");\n" +
