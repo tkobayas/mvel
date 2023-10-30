@@ -16,8 +16,7 @@
 
 package org.mvel3;
 
-import org.mvel2.EvaluatorBuilder;
-import org.mvel2.EvaluatorBuilder.ContextInfoBuilder;
+import org.mvel3.EvaluatorBuilder.ContextInfoBuilder;
 import org.mvel3.transpiler.TranspiledResult;
 
 import java.math.BigDecimal;

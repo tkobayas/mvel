@@ -3,6 +3,7 @@ package org.mvel3.parser.printer;
 import com.github.javaparser.ParseResult;
 import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.expr.Expression;
+import com.github.javaparser.ast.expr.FieldAccessExpr;
 import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.ast.expr.NameExpr;
 import com.github.javaparser.ast.expr.ObjectCreationExpr;
@@ -18,7 +19,6 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.function.Function;
 
 import static org.mvel3.parser.printer.MVELToJavaRewriter.getArgumentsWithUnwrap;
@@ -44,19 +44,22 @@ public class CoerceRewriter {
         this.transpilerContext = transpilerContext;
         bigDecimalCoercion();
         bigIntegerCoercion();
-        dateCoercion();
+
+        integerToDateCoercion();
+        dateToLongCoercion();
+
+        numberToStringCoercion();
+        stringToNumberCoercion();
+
     }
 
     public void bigDecimalCoercion() {
-        Function<Expression, Expression> toBigDecimal = new Function<>() {
-            @Override
-            public Expression apply(Expression e) {
-                List<Expression> args = getArgumentsWithUnwrap(e);
+        Function<Expression, Expression> toBigDecimal = e -> {
+            List<Expression> args = getArgumentsWithUnwrap(e);
 
-                MethodCallExpr methodCallExpr = new MethodCallExpr(new NameExpr("BigDecimal"), "valueOf", NodeList.nodeList(args));
+            MethodCallExpr methodCallExpr = new MethodCallExpr(new NameExpr("BigDecimal"), "valueOf", NodeList.nodeList(args));
 
-                return methodCallExpr;
-            }
+            return methodCallExpr;
         };
 
         String bigDecimal = toObjectDescriptor(BigDecimal.class.getCanonicalName().replace(".", "/"));
@@ -68,15 +71,12 @@ public class CoerceRewriter {
     }
 
     public void bigIntegerCoercion() {
-        Function<Expression, Expression> toBigInteger = new Function<>() {
-            @Override
-            public Expression apply(Expression e) {
-                List<Expression> args = getArgumentsWithUnwrap(e);
+        Function<Expression, Expression> toBigInteger = e -> {
+            List<Expression> args = getArgumentsWithUnwrap(e);
 
-                MethodCallExpr methodCallExpr = new MethodCallExpr(new NameExpr("BigInteger"), "valueOf", NodeList.nodeList(args));
+            MethodCallExpr methodCallExpr = new MethodCallExpr(new NameExpr("BigInteger"), "valueOf", NodeList.nodeList(args));
 
-                return methodCallExpr;
-            }
+            return methodCallExpr;
         };
 
 
@@ -89,17 +89,7 @@ public class CoerceRewriter {
 
     }
 
-    private static String toObjectDescriptor(String canonicalType) {
-        return "L" + canonicalType + ";";
-    }
-
-    public void dateCoercion() {
-//        new java.util.Date(Character.valueOf('c'));
-//        new java.util.Date((long)10.0f);
-//        new java.util.Date((long)10.0d);
-//        //new java.util.Date((long) Float.valueOf("10.0"));
-//        new java.util.Date((long)10.0d);
-
+    public void integerToDateCoercion() {
         ParseResult<ClassOrInterfaceType> result = transpilerContext.getParser().parseClassOrInterfaceType("java.util.Date");
         if (!result.isSuccessful()) {
             throw new RuntimeException("Cannot resolve type:" + result.getProblems());
@@ -107,15 +97,12 @@ public class CoerceRewriter {
 
         final ClassOrInterfaceType dateType = result.getResult().get();
 
-        Function<Expression, Expression> integerToDate = new Function<>() {
-            @Override
-            public Expression apply(Expression e) {
-                ClassOrInterfaceType type = dateType.clone();
+        Function<Expression, Expression> integerToDate = e -> {
+            ClassOrInterfaceType type = dateType.clone();
 
-                ObjectCreationExpr expr = new ObjectCreationExpr(null, type, NodeList.nodeList(e));
+            ObjectCreationExpr expr = new ObjectCreationExpr(null, type, NodeList.nodeList(e));
 
-                return expr;
-            }
+            return expr;
         };
 
         String date = toObjectDescriptor(Date.class.getCanonicalName().replace(".", "/"));
@@ -124,6 +111,66 @@ public class CoerceRewriter {
             coercions.put(key(p.toDescriptor(), date), integerToDate);
             coercions.put(key("Ljava/lang/" + p.toBoxedType() + ";", date), integerToDate);
         });
+    }
+
+
+    /**
+     * As MVEL3 does not narrow types, Date can only be coerced to long and Long.
+     */
+    public void dateToLongCoercion() {
+        String date = toObjectDescriptor(Date.class.getCanonicalName().replace(".", "/"));
+
+        // This needs a function for each number time.
+        Arrays.stream(new Primitive[] {Primitive.LONG}).forEach(p -> {
+            Function<Expression, Expression> toNumber = e -> {
+                FieldAccessExpr scope = new FieldAccessExpr(new FieldAccessExpr(new NameExpr("java"), "lang"),  p.toBoxedType().getNameAsString());
+                MethodCallExpr valueOfCall = new MethodCallExpr(scope, "valueOf");
+                MethodCallExpr getTimeCall = new MethodCallExpr(e, "getTime");
+
+                valueOfCall.addArgument(getTimeCall);
+                return valueOfCall;
+            };
+
+            coercions.put(key(date, p.toDescriptor()), toNumber);
+            coercions.put(key(date, "Ljava/lang/" + p.toBoxedType() + ";"), toNumber);
+        });
+    }
+
+    public void numberToStringCoercion() {
+        Function<Expression, Expression> numberToDate = e -> {
+            FieldAccessExpr stringScope = new FieldAccessExpr(new FieldAccessExpr(new NameExpr("java"), "lang"), "String");
+            MethodCallExpr methodCallExpr = new MethodCallExpr(stringScope, "valueOf");
+            methodCallExpr.addArgument(e);
+            return methodCallExpr;
+        };
+
+        String string = toObjectDescriptor(String.class.getCanonicalName().replace(".", "/"));
+
+        Arrays.stream(floatPrimitives).forEach(p -> {
+            coercions.put(key(p.toDescriptor(), string), numberToDate);
+            coercions.put(key("Ljava/lang/" + p.toBoxedType() + ";", string), numberToDate);
+        });
+    }
+
+    public void stringToNumberCoercion() {
+        String string = toObjectDescriptor(String.class.getCanonicalName().replace(".", "/"));
+
+        // This needs a function for each number time.
+        Arrays.stream(floatPrimitives).forEach(p -> {
+            Function<Expression, Expression> toNumber = e -> {
+                FieldAccessExpr scope = new FieldAccessExpr(new FieldAccessExpr(new NameExpr("java"), "lang"),  p.toBoxedType().getNameAsString());
+                MethodCallExpr methodCallExpr = new MethodCallExpr(scope, "valueOf");
+                methodCallExpr.addArgument(e);
+                return methodCallExpr;
+            };
+
+            coercions.put(key(string, p.toDescriptor()), toNumber);
+            coercions.put(key(string, "Ljava/lang/" + p.toBoxedType() + ";"), toNumber);
+        });
+    }
+
+    private static String toObjectDescriptor(String canonicalType) {
+        return "L" + canonicalType + ";";
     }
 
     CoercionKey key(String sourceType, String targetType) {
@@ -184,17 +231,28 @@ public class CoerceRewriter {
         }
     }
 
-    public Optional<Expression> coerce(ResolvedType source, Expression sourceExpression, ResolvedType target) {
+//    public Expression coerce(ResolvedReferenceTypeDeclaration source, Expression sourceExpression, ResolvedReferenceTypeDeclaration target) {
+//        CoercionKey key = key(source.toString()
+//                              target.toDescriptor());
+//        Function<Expression, Expression> coerce = coercions.get(key);
+//
+//        if (coerce != null) {
+//            return coerce.apply(sourceExpression);
+//        }
+//
+//        return null;
+//    }
+
+    public Expression coerce(ResolvedType source, Expression sourceExpression, ResolvedType target) {
         CoercionKey key = key(source.toDescriptor(),
                               target.toDescriptor());
         Function<Expression, Expression> coerce = coercions.get(key);
 
         if (coerce != null) {
-            return Optional.of(coerce.apply(sourceExpression));
+            return coerce.apply(sourceExpression);
         }
 
-        return Optional.empty();
-
+        return null;
     }
 
 }

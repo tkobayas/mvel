@@ -17,10 +17,8 @@
 package org.mvel3;
 
 import org.junit.Ignore;
-import org.mvel2.EvaluatorBuilder;
 import org.mvel3.transpiler.TranspiledResult;
 import org.mvel3.transpiler.context.Declaration;
-import org.mvel3.transpiler.context.TranspilerContext;
 import org.junit.Test;
 
 import java.math.BigDecimal;

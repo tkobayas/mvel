@@ -23,6 +23,8 @@ import org.mvel3.parser.printer.CoerceRewriter;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -763,10 +765,11 @@ public class MVELTranspilerTest implements TranspilerTest {
     public void testMapSetWithMapGetAsValue() {
         test(ctx -> {
                  ctx.addDeclaration("$p", Person.class);
-                 ctx.addDeclaration("n", Integer.class);
+                 ctx.addDeclaration("s", String.class);
+                 ctx.addDeclaration("map", Map.class, "<String, Integer>");
              },
-             "$p.getItems().put(\"key4\", n);",
-             "$p.getItems().put(\"key4\", java.lang.String.valueOf(n));");
+             "$p.items[\"key4\"] = map[s];",
+             "$p.getItems().put(\"key4\", java.lang.String.valueOf(map.get(s)));");
     }
 
     @Test

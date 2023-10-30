@@ -33,10 +33,14 @@ import com.github.javaparser.resolution.MethodUsage;
 import com.github.javaparser.resolution.Solver;
 import com.github.javaparser.resolution.UnsolvedSymbolException;
 import com.github.javaparser.resolution.declarations.ResolvedFieldDeclaration;
+import com.github.javaparser.resolution.declarations.ResolvedMethodDeclaration;
+import com.github.javaparser.resolution.declarations.ResolvedParameterDeclaration;
 import com.github.javaparser.resolution.declarations.ResolvedReferenceTypeDeclaration;
+import com.github.javaparser.resolution.declarations.ResolvedTypeDeclaration;
 import com.github.javaparser.resolution.declarations.ResolvedTypeParameterDeclaration;
 import com.github.javaparser.resolution.types.ResolvedPrimitiveType;
 import com.github.javaparser.resolution.types.ResolvedType;
+import com.github.javaparser.resolution.types.ResolvedTypeVariable;
 import com.github.javaparser.symbolsolver.javaparsermodel.JavaParserFactory;
 import com.github.javaparser.symbolsolver.javaparsermodel.contexts.CompilationUnitContext;
 import com.github.javaparser.utils.Pair;
@@ -47,6 +51,7 @@ import org.mvel3.transpiler.context.TranspilerContext;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -181,12 +186,21 @@ public class MVELToJavaRewriter {
                 break;
             case "MethodCallExpr":
                 MethodCallExpr methodCall = (MethodCallExpr) node;
+  //              ResolvedMethodDeclaration resolved = methodCall.resolve();
+
+//                ResolvedParameterDeclaration resolvedParameterDeclaration = resolved.getParam(0);
+
+
+//                ResolvedType resolvedType = methodCall.getScope().get().calculateResolvedType();
+
                 if (methodCall.getScope().isPresent()) {
                     rewriteNode(methodCall.getScope().get());
                 }
                 for (Expression arg : methodCall.getArguments()) {
                     rewriteNode(arg);
                 }
+
+                maybeCoerceArguments(methodCall);
                 break;
             case "VariableDeclarationExpr":
                 VariableDeclarationExpr declrExpr = (VariableDeclarationExpr) node;
@@ -206,8 +220,10 @@ public class MVELToJavaRewriter {
                         !(type.isClassOrInterfaceType() && type.asClassOrInterfaceType().getNameAsString().equals("var"))) {
                         // This may not resolve, there is invalid syntax or types do not match parameters.
                         ResolvedType initType = initializer.calculateResolvedType();
-                        Optional<Expression> result =  coercer.coerce(initType, initializer, declr.getType().resolve());
-                        result.ifPresent( i -> declr.setInitializer(i));
+                        Expression result =  coercer.coerce(initType, initializer, declr.getType().resolve());
+                        if (result != null) {
+                            declr.setInitializer(result);
+                        }
                     }
                 }
 
@@ -221,6 +237,64 @@ public class MVELToJavaRewriter {
             lastBinaryExpr = binExpr;
         }
 
+    }
+
+    private void maybeCoerceArguments(MethodCallExpr methodCall) {
+        // Get the Method declaration and it's resolved types.
+        ResolvedType scope = context.getFacade().getType(methodCall.getScope().get());
+        ResolvedType resolvedScope = methodCall.getScope().get().calculateResolvedType();
+
+        List<ResolvedMethodDeclaration> methods = scope.asReferenceType().getAllMethods();
+        List<ResolvedType> argTypes = Arrays.asList(new ResolvedType[methodCall.getArguments().size()]);
+        for (int i = 0; i < methodCall.getArguments().size(); i++ ) {
+            argTypes.set(i, methodCall.getArguments().get(i).calculateResolvedType());
+        }
+
+        methodLoop:
+        for ( ResolvedMethodDeclaration methodDeclr : methods) {
+            // Find the method with same name and number of arguments
+            // Then find the first subset of those, that all arguments either match or
+            // can be coerced
+            if (methodDeclr.getNumberOfParams() == methodCall.getArguments().size() &&
+                methodDeclr.getName().equals(methodCall.getNameAsString())) {
+                // copy the list of original args, coerced ones will replace this.
+                // only when we have a full match of args, will it replace the coerced ones in the methodCall
+                List<Expression> newArgs = new ArrayList<>(methodCall.getArguments());
+
+                // check each arg, see if not assignable, see it can coerce.
+                for (int i = 0, size = methodDeclr.getNumberOfParams(); i < size; i++) {
+                    ResolvedType            paramType         = methodDeclr.getParam(i).getType();
+
+                    if (paramType.isTypeVariable()) {
+                        ResolvedTypeVariable typeVariable = paramType.asTypeVariable();
+                        String typeName = typeVariable.asTypeParameter().getName();
+                        for ( Pair<ResolvedTypeParameterDeclaration, ResolvedType> pair : resolvedScope.asReferenceType().getTypeParametersMap() ) {
+                            if (typeName.equals(pair.a.asTypeParameter().getName())) {
+                                paramType = pair.b;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (!((paramType).isAssignableBy(argTypes.get(i)))) {
+                        // else try coercion
+                        Expression result = coercer.coerce(argTypes.get(i), methodCall.getArguments().get(i), paramType);
+                        if (result == null) {
+                            // cannot be assiged and also cannot be coerced, so the method does not match.
+                            continue methodLoop;
+                        }
+                        newArgs.set(i, result);
+                    }
+                }
+                // We have a matched method name and matched arguments, use this one.
+                for (int j = 0; j < newArgs.size(); j++) {
+                    if (newArgs.get(j) != methodCall.getArgument(j)) {
+                        // the arg was replaced via coercion, replace it in the actual methodCall
+                        methodCall.setArgument(j, newArgs.get(j));
+                    }
+                }
+            }
+        }
     }
 
     private Expression processInlineCastExpr(CastExpr node) {
@@ -238,11 +312,11 @@ public class MVELToJavaRewriter {
             expr = enclosure; // a normal casts suffices
         } else {
             // else try coercion
-            Optional<Expression> result = coercer.coerce(sourceType, node.getExpression(), targetType);
-            if (result.isEmpty()) {
+            Expression result = coercer.coerce(sourceType, node.getExpression(), targetType);
+            if (result == null) {
                 throw new RuntimeException("Cannot be cast or coerced: " + node);
             }
-            expr = result.get();
+            expr = result;
 
             node.replace(expr);
         }
@@ -424,18 +498,18 @@ public class MVELToJavaRewriter {
             MethodUsage setter = getMethod("set", fieldAccessor, 1);
 
             if (setter != null) {
-                Optional<Expression> coerced = coercer.coerce(valueType, value, setter.getParamType(0));
-                if (coerced.isPresent()) {
-                    value = coerced.get();
+                Expression coerced = coercer.coerce(valueType, value, setter.getParamType(0));
+                if (coerced != null) {
+                    value = coerced;
                 }
 
                 MethodCallExpr method = new MethodCallExpr(setter.getName(), value);
                 method.setScope(((FieldAccessExpr) target).getScope());
                 assignExpr.replace(method);
             } else if (assignExpr.getValue() != value) {
-                Optional<Expression> coerced = coercer.coerce(valueType, value, fieldAccessor.calculateResolvedType());
-                if (coerced.isPresent()) {
-                    value = coerced.get();
+                Expression coerced = coercer.coerce(valueType, value, fieldAccessor.calculateResolvedType());
+                if (coerced != null) {
+                    value = coerced;
                 }
 
                 assignExpr.setValue(value);
@@ -456,7 +530,7 @@ public class MVELToJavaRewriter {
                         putMethod.setArguments(NodeList.nodeList(new StringLiteralExpr(nameExpr.getNameAsString()),
                                                                  assignExpr));
                     } else {
-                        // This assigment is part of some expression, so wwrap the asssignment and return the new value
+                        // This assigment is part of some expression, so wrap the asssignment and return the new value
                         // return a = 5 becomes return org.mvel3.MVEL.putMap(context, "a", a = 5);
                         Expression scope = handleParserResult(context.getParser().parseExpression(MVEL.class.getCanonicalName()));
 
@@ -700,12 +774,10 @@ public class MVELToJavaRewriter {
 
         MethodCallExpr methodCallExpr;
 
-        Optional<Expression> coerceResult = coercer.coerce(e2Type, e2, e1Type);
-        if (coerceResult.isPresent()) {
-            e2 = coerceResult.get();
+        Expression coerceResult = coercer.coerce(e2Type, e2, e1Type);
+        if (coerceResult != null) {
+            e2 = coerceResult;
         }
-
-
 
         List<Expression> children = getArgumentsWithUnwrap(e2);
         if (!op.equals("compareTo") && e1Type.equals(bigDecimalType)) {
@@ -739,7 +811,15 @@ public class MVELToJavaRewriter {
     public Node maybeRewriteToGetter(FieldAccessExpr n) {
         rewriteNode(n.getScope());
 
-        ResolvedType type = n.getScope().calculateResolvedType();
+        ResolvedType type;
+        try {
+            type = n.getScope().calculateResolvedType();
+        } catch (Exception e) {
+            // It cannot be known if 'n' is a package which cannot be resolved or a package.
+            // This is a ugly way to simply do nothing if it doesn't resolve and it's assumed (maybe wrongly) it was a
+            // package, instead of some other failure.
+            return n;
+        }
         Expression arg = null;
         MethodUsage getter = null;
         if ( mapType.isAssignableBy(type)) {
@@ -772,24 +852,25 @@ public class MVELToJavaRewriter {
     }
 
     public Node rewriteArrayAccessExpr(ArrayAccessExpr n) {
+        if (n.getParentNode().get() instanceof  AssignExpr && ((AssignExpr)n.getParentNode().get()).getTarget() == n) {
+            // do not rewrite the setter part of the ArrayAccessExpr, but getting is fine.
+            return n;
+        }
+
         rewriteNode(n.getName());
 
         MethodCallExpr methodCallExpr = null;
-        if ( !(n.getParentNode().get() instanceof  AssignExpr)) {
-            ResolvedType resolvedType = n.getName().calculateResolvedType();
+        ResolvedType resolvedType = n.getName().calculateResolvedType();
 
 
-            if (resolvedType.isArray()) {
-                return null;
-            }
-
-
-            methodCallExpr = new MethodCallExpr("get", n.getIndex());
-            methodCallExpr.setScope(n.getName());
-
-            n.replace(methodCallExpr);
-
+        if (resolvedType.isArray()) {
+            return null;
         }
+
+        methodCallExpr = new MethodCallExpr("get", n.getIndex());
+        methodCallExpr.setScope(n.getName());
+
+        n.replace(methodCallExpr);
         return methodCallExpr;
     }
 
