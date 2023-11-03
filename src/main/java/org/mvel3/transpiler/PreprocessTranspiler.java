@@ -16,7 +16,8 @@
 
 package org.mvel3.transpiler;
 
-import org.mvel3.EvaluatorBuilder;
+import org.mvel2.EvaluatorBuilder;
+import org.mvel3.transpiler.context.TranspilerContext;
 
 import java.util.function.Consumer;
 

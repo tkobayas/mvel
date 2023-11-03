@@ -3,15 +3,19 @@ package org.mvel3.parser.printer;
 import com.github.javaparser.ParseResult;
 import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.expr.Expression;
-import com.github.javaparser.ast.expr.FieldAccessExpr;
+import com.github.javaparser.ast.expr.IntegerLiteralExpr;
 import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.ast.expr.NameExpr;
 import com.github.javaparser.ast.expr.ObjectCreationExpr;
 import com.github.javaparser.ast.type.ClassOrInterfaceType;
 import com.github.javaparser.ast.type.PrimitiveType.Primitive;
+import com.github.javaparser.resolution.Solver;
 import com.github.javaparser.resolution.types.ResolvedType;
+import com.google.common.collect.Streams;
+import org.mvel3.transpiler.MVELTranspiler;
 import org.mvel3.transpiler.context.TranspilerContext;
 
+import java.beans.PropertyEditorSupport;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.Arrays;
@@ -27,21 +31,23 @@ public class CoerceRewriter {
 
     private Map<CoercionKey, Function<Expression, Expression>> coercions = new HashMap<>();
 
-    public static final Primitive[] integerPrimitives = new Primitive[] { Primitive.CHAR,
+    public static final Primitive[] INTEGER_PRIMITIVES = new Primitive[] {Primitive.CHAR,
                                                                           Primitive.SHORT,
                                                                           Primitive.INT,
                                                                           Primitive.LONG};
 
-    public static final Primitive[] floatPrimitives = new Primitive[] { Primitive.CHAR,
+    public static final Primitive[] FLOAT_PRIMITIVES = new Primitive[] {Primitive.CHAR,
                                                                         Primitive.SHORT,
                                                                         Primitive.INT,
                                                                         Primitive.LONG,
                                                                         Primitive.FLOAT,
                                                                         Primitive.DOUBLE};
+
     TranspilerContext transpilerContext;
 
     public CoerceRewriter(TranspilerContext transpilerContext) {
         this.transpilerContext = transpilerContext;
+
         bigDecimalCoercion();
         bigIntegerCoercion();
 
@@ -57,16 +63,16 @@ public class CoerceRewriter {
         Function<Expression, Expression> toBigDecimal = e -> {
             List<Expression> args = getArgumentsWithUnwrap(e);
 
-            MethodCallExpr methodCallExpr = new MethodCallExpr(new NameExpr("BigDecimal"), "valueOf", NodeList.nodeList(args));
+            MethodCallExpr methodCallExpr = new MethodCallExpr(new NameExpr(BigDecimal.class.getSimpleName()), "valueOf", NodeList.nodeList(args));
 
             return methodCallExpr;
         };
 
-        String bigDecimal = toObjectDescriptor(BigDecimal.class.getCanonicalName().replace(".", "/"));
+        String bigDecimal = BigDecimal.class.getCanonicalName();
 
-        Arrays.stream(floatPrimitives).forEach(p -> {
-            coercions.put(key(p.toDescriptor(), bigDecimal), toBigDecimal);
-            coercions.put(key("Ljava/lang/" + p.toBoxedType() + ";", bigDecimal), toBigDecimal);
+        Arrays.stream(FLOAT_PRIMITIVES).forEach(p -> {
+            coercions.put(key(p.name().toUpperCase(), bigDecimal), toBigDecimal);
+            coercions.put(key("java.lang." + p.toBoxedType(), bigDecimal), toBigDecimal);
         });
     }
 
@@ -74,17 +80,17 @@ public class CoerceRewriter {
         Function<Expression, Expression> toBigInteger = e -> {
             List<Expression> args = getArgumentsWithUnwrap(e);
 
-            MethodCallExpr methodCallExpr = new MethodCallExpr(new NameExpr("BigInteger"), "valueOf", NodeList.nodeList(args));
+            MethodCallExpr methodCallExpr = new MethodCallExpr(new NameExpr(BigInteger.class.getSimpleName()), "valueOf", NodeList.nodeList(args));
 
             return methodCallExpr;
         };
 
 
-        String bigInteger = toObjectDescriptor(BigInteger.class.getCanonicalName().replace(".", "/"));
+        String bigInteger = BigInteger.class.getCanonicalName();
 
-        Arrays.stream(integerPrimitives).forEach(p -> {
-            coercions.put(key(p.toDescriptor(), bigInteger), toBigInteger);
-            coercions.put(key("Ljava/lang/" + p.toBoxedType() + ";", bigInteger), toBigInteger);
+        Arrays.stream(INTEGER_PRIMITIVES).forEach(p -> {
+            coercions.put(key(p.name().toUpperCase(), bigInteger), toBigInteger);
+            coercions.put(key("java.lang." + p.toBoxedType(), bigInteger), toBigInteger);
         });
 
     }
@@ -105,11 +111,11 @@ public class CoerceRewriter {
             return expr;
         };
 
-        String date = toObjectDescriptor(Date.class.getCanonicalName().replace(".", "/"));
+        String date = Date.class.getCanonicalName();
 
-        Arrays.stream(integerPrimitives).forEach(p -> {
-            coercions.put(key(p.toDescriptor(), date), integerToDate);
-            coercions.put(key("Ljava/lang/" + p.toBoxedType() + ";", date), integerToDate);
+        Arrays.stream(INTEGER_PRIMITIVES).forEach(p -> {
+            coercions.put(key(p.name().toUpperCase(), date), integerToDate);
+            coercions.put(key("java.lang." + p.toBoxedType(), date), integerToDate);
         });
     }
 
@@ -118,59 +124,97 @@ public class CoerceRewriter {
      * As MVEL3 does not narrow types, Date can only be coerced to long and Long.
      */
     public void dateToLongCoercion() {
-        String date = toObjectDescriptor(Date.class.getCanonicalName().replace(".", "/"));
+        String date = Date.class.getCanonicalName();
 
-        // This needs a function for each number time.
+        Function<Expression, Expression> toLong = e -> {
+            MethodCallExpr getTimeCall = new MethodCallExpr(e, "getTime");
+            return getTimeCall;
+        };
+
         Arrays.stream(new Primitive[] {Primitive.LONG}).forEach(p -> {
-            Function<Expression, Expression> toNumber = e -> {
-                FieldAccessExpr scope = new FieldAccessExpr(new FieldAccessExpr(new NameExpr("java"), "lang"),  p.toBoxedType().getNameAsString());
-                MethodCallExpr valueOfCall = new MethodCallExpr(scope, "valueOf");
-                MethodCallExpr getTimeCall = new MethodCallExpr(e, "getTime");
-
-                valueOfCall.addArgument(getTimeCall);
-                return valueOfCall;
-            };
-
-            coercions.put(key(date, p.toDescriptor()), toNumber);
-            coercions.put(key(date, "Ljava/lang/" + p.toBoxedType() + ";"), toNumber);
+            coercions.put(key(date, p.name().toUpperCase()), toLong);
+            coercions.put(key(date, "java.lang." + p.toBoxedType()), toLong);
         });
+
     }
 
     public void numberToStringCoercion() {
-        Function<Expression, Expression> numberToDate = e -> {
-            FieldAccessExpr stringScope = new FieldAccessExpr(new FieldAccessExpr(new NameExpr("java"), "lang"), "String");
-            MethodCallExpr methodCallExpr = new MethodCallExpr(stringScope, "valueOf");
+        Function<Expression, Expression> numberToString = e -> {
+            MethodCallExpr methodCallExpr = new MethodCallExpr(new NameExpr("String"), "valueOf");
             methodCallExpr.addArgument(e);
             return methodCallExpr;
         };
 
-        String string = toObjectDescriptor(String.class.getCanonicalName().replace(".", "/"));
+        String string = String.class.getCanonicalName();
 
-        Arrays.stream(floatPrimitives).forEach(p -> {
-            coercions.put(key(p.toDescriptor(), string), numberToDate);
-            coercions.put(key("Ljava/lang/" + p.toBoxedType() + ";", string), numberToDate);
+        Arrays.stream(FLOAT_PRIMITIVES).forEach(p -> {
+            coercions.put(key(p.name().toUpperCase(), string), numberToString);
+            coercions.put(key("java.lang." + p.toBoxedType(), string), numberToString);
         });
+
+        Arrays.stream(new String[] {BigDecimal.class.getCanonicalName(), BigInteger.class.getCanonicalName()}).forEach(p -> {
+            Function<Expression, Expression> toNumber = e -> {
+                MethodCallExpr methodCallExpr = new MethodCallExpr(e, "toString");
+                return methodCallExpr;
+            };
+
+            coercions.put(key(p, string), toNumber);
+        });
+
     }
 
     public void stringToNumberCoercion() {
-        String string = toObjectDescriptor(String.class.getCanonicalName().replace(".", "/"));
+        String string = String.class.getCanonicalName();
 
-        // This needs a function for each number time.
-        Arrays.stream(floatPrimitives).forEach(p -> {
+        // This class will preserve the coercion for target's type of primitive or Number Object wrapper.
+
+        // This needs a function for each number type.
+        Arrays.stream(FLOAT_PRIMITIVES).forEach(p -> {
             Function<Expression, Expression> toNumber = e -> {
-                FieldAccessExpr scope = new FieldAccessExpr(new FieldAccessExpr(new NameExpr("java"), "lang"),  p.toBoxedType().getNameAsString());
-                MethodCallExpr methodCallExpr = new MethodCallExpr(scope, "valueOf");
+                MethodCallExpr methodCallExpr = new MethodCallExpr(new NameExpr(p.toBoxedType().getNameAsString()), "valueOf");
                 methodCallExpr.addArgument(e);
                 return methodCallExpr;
             };
 
-            coercions.put(key(string, p.toDescriptor()), toNumber);
-            coercions.put(key(string, "Ljava/lang/" + p.toBoxedType() + ";"), toNumber);
+            coercions.put(key(string, "java.lang." + p.toBoxedType()), toNumber);
         });
-    }
 
-    private static String toObjectDescriptor(String canonicalType) {
-        return "L" + canonicalType + ";";
+        // This needs a function for each number type.
+        // ignore Char
+        Arrays.stream(FLOAT_PRIMITIVES).forEach(p -> {
+            if ( p != Primitive.CHAR) {
+                Function<Expression, Expression> toNumber = e -> {
+                    String         primName       = p.name().toLowerCase();
+                    String         parseName      = "parse" + primName.substring(0, 1).toUpperCase() + primName.substring(1);
+                    MethodCallExpr methodCallExpr = new MethodCallExpr(new NameExpr(p.toBoxedType().getNameAsString()), parseName);
+                    methodCallExpr.addArgument(e);
+                    return methodCallExpr;
+                };
+
+                coercions.put(key(string, p.name().toUpperCase()), toNumber);
+            }
+        });
+
+        // Noq add Char
+        // This does not work, so always coerce to char
+        //Character x = Character.valueOf("a".charAt(0)); x += Character.valueOf("a".charAt(0));
+        Function<Expression, Expression> toNumber = e -> {
+            MethodCallExpr methodCallExpr = new MethodCallExpr(e, "charAt");
+            methodCallExpr.addArgument(new IntegerLiteralExpr(0));
+            return methodCallExpr;
+        };
+
+        coercions.put(key(string, Primitive.CHAR.name().toUpperCase()), toNumber);
+        coercions.put(key(string, "java.lang." + Primitive.CHAR.toBoxedType()), toNumber);
+
+        Arrays.stream(new Class[] {BigDecimal.class, BigInteger.class}).forEach(p -> {
+            Function<Expression, Expression> toBigNumber = e -> {
+                ClassOrInterfaceType bigNumberClass = MVELTranspiler.handleParserResult(transpilerContext.getParser().parseClassOrInterfaceType(p.getSimpleName()));
+                return new ObjectCreationExpr(null, bigNumberClass, NodeList.nodeList(e));
+            };
+
+            coercions.put(key(string, p.getCanonicalName()), toBigNumber);
+        });
     }
 
     CoercionKey key(String sourceType, String targetType) {
@@ -231,21 +275,9 @@ public class CoerceRewriter {
         }
     }
 
-//    public Expression coerce(ResolvedReferenceTypeDeclaration source, Expression sourceExpression, ResolvedReferenceTypeDeclaration target) {
-//        CoercionKey key = key(source.toString()
-//                              target.toDescriptor());
-//        Function<Expression, Expression> coerce = coercions.get(key);
-//
-//        if (coerce != null) {
-//            return coerce.apply(sourceExpression);
-//        }
-//
-//        return null;
-//    }
-
     public Expression coerce(ResolvedType source, Expression sourceExpression, ResolvedType target) {
-        CoercionKey key = key(source.toDescriptor(),
-                              target.toDescriptor());
+        CoercionKey key = key(describe(source),
+                              describe(target));
         Function<Expression, Expression> coerce = coercions.get(key);
 
         if (coerce != null) {
@@ -253,6 +285,10 @@ public class CoerceRewriter {
         }
 
         return null;
+    }
+
+    public String describe(ResolvedType type) {
+        return type.isPrimitive() ? type.describe().toUpperCase() : type.describe();
     }
 
 }

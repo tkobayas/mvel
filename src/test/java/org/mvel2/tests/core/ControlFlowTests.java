@@ -1,7 +1,8 @@
 package org.mvel2.tests.core;
 
-import org.mvel3.EvaluatorBuilder;
-import org.mvel3.EvaluatorBuilder.ContextInfoBuilder;
+import org.mvel2.EvaluatorBuilder;
+import org.mvel2.EvaluatorBuilder.ContextInfoBuilder;
+import org.mvel2.EvaluatorBuilder.EvaluatorInfo;
 import org.mvel2.MVEL;
 import org.mvel2.ParserConfiguration;
 import org.mvel2.ParserContext;
@@ -9,6 +10,7 @@ import org.mvel2.compiler.ExecutableStatement;
 import org.mvel2.tests.core.res.Base;
 import org.mvel2.tests.core.res.Foo;
 import org.mvel3.Evaluator;
+import org.mvel3.TranspilerTest;
 import org.mvel3.Type;
 import org.mvel3.transpiler.context.Declaration;
 

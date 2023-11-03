@@ -41,15 +41,20 @@ public class Person {
 
     private Map<String, String> items = new HashMap<>();
 
+    private Map<String, Integer> prices = new HashMap<>();
+
     private BigDecimal salary;
 
     private Integer ageAsInteger;
 
     private BigInteger ageAsBigInteger;
 
+    public int[] publicIntArray;
+
     public Person(String name) {
         this(name, null);
     }
+
 
     public Person(String name, Person parent) {
         this(name, parent, Gender.NOT_AVAILABLE);
@@ -97,6 +102,14 @@ public class Person {
 
     public void setItems(Map<String, String> items) {
         this.items = items;
+    }
+
+    public Map<String, Integer> getPrices() {
+        return prices;
+    }
+
+    public void setPrices(Map<String, Integer> prices) {
+        this.prices = prices;
     }
 
     public BigDecimal getSalary() {

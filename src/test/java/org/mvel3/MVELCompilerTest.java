@@ -1,8 +1,9 @@
 package org.mvel3;
 
 import org.junit.Test;
-import org.mvel3.EvaluatorBuilder.ContextInfoBuilder;
-import org.mvel3.EvaluatorBuilder.EvaluatorInfo;
+import org.mvel2.EvaluatorBuilder;
+import org.mvel2.EvaluatorBuilder.ContextInfoBuilder;
+import org.mvel2.EvaluatorBuilder.EvaluatorInfo;
 import org.mvel3.transpiler.context.Declaration;
 
 import java.util.ArrayList;

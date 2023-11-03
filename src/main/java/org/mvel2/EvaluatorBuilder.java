@@ -1,5 +1,7 @@
-package org.mvel3;
+package org.mvel2;
 
+import org.mvel3.ClassManager;
+import org.mvel3.Type;
 import org.mvel3.transpiler.context.Declaration;
 
 import java.util.ArrayList;
