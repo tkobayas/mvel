@@ -676,36 +676,6 @@ public class MVELToJavaRewriter {
         }
     }
 
-    private void maybeAssignMaybeCoercedValue(Expression value, ResolvedType valueType, AssignExpr assignExpr, ResolvedType targetType) {
-        Expression   coerced   = coercer.coerce(valueType, value, targetType);
-        if (coerced != null) {
-            value = coerced;
-        }
-        if (assignExpr.getValue() != value) {
-            assignExpr.setValue(value);
-        }
-    }
-
-    private void rewriteAssignmentToMethod(Expression value, ResolvedType valueType, MethodUsage putSet, int paramIndex, Expression scope, AssignExpr assignExpr, Function<Expression, Expression[]> getArgs) {
-        ResolvedType paramType = putSet.getParamType(paramIndex);
-        ResolvedType scopeType = scope.calculateResolvedType();
-
-        // resolve the TypeParameter if one exists.
-        if (paramType.isTypeVariable()) {
-            paramType = getActualResolvedTypeForTypeParameter(paramType, scopeType);
-        }
-
-        // Check and apply coercion if matching coercion exists.
-        Expression coerced = coercer.coerce(valueType, value, paramType);
-        if (coerced != null) {
-            value = coerced;
-        }
-
-        MethodCallExpr method = new MethodCallExpr(putSet.getName(), getArgs.apply(value));
-        method.setScope(scope);
-        assignExpr.replace(method);
-    }
-
     public void addSetterMethod(NameExpr nameExpr) {
         MethodDeclaration methodDeclr = context.getClassDeclaration().addMethod( "contextSet" + nameExpr);
         methodDeclr.setStatic(true);
@@ -958,19 +928,6 @@ public class MVELToJavaRewriter {
 
         n.replace(methodCallExpr);
         return methodCallExpr;
-    }
-
-
-    private static MethodUsage getMethod(String name, Expression e, int x) {
-        if (e instanceof  MethodCallExpr) {
-            return getMethod((MethodCallExpr)e, name, x);
-        } else if (e instanceof  FieldAccessExpr) {
-            return getMethod((MethodCallExpr)e, name, x);
-        } else if (e instanceof  NameExpr) {
-            return getMethod(name, e.calculateResolvedType(), ((NameExpr)e).getNameAsString(), x );
-        }
-
-        return null;
     }
 
     public  static MethodUsage getMethod(String getterSetter, FieldAccessExpr n, int x) {
