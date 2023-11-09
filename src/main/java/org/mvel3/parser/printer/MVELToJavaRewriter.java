@@ -6,6 +6,8 @@ import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.body.Parameter;
 import com.github.javaparser.ast.body.VariableDeclarator;
+import com.github.javaparser.ast.expr.ArrayCreationExpr;
+import com.github.javaparser.ast.expr.ArrayInitializerExpr;
 import com.github.javaparser.ast.expr.AssignExpr.Operator;
 import com.github.javaparser.ast.expr.BinaryExpr;
 import com.github.javaparser.ast.expr.CastExpr;
@@ -82,6 +84,7 @@ public class MVELToJavaRewriter {
     Map<BinaryExpr, BinaryExprTypes> nodeMap;
 
     private CoerceRewriter coercer;
+    private OverloadRewriter overloader;
 
     private Set<String>    declaredVars;
 
@@ -90,6 +93,7 @@ public class MVELToJavaRewriter {
     private CompilationUnitContext unitContext;
 
     private MethodUsage mapGetMethod;
+    private MethodUsage listGetMethod;
 
     Expression mathContext;
 
@@ -98,6 +102,7 @@ public class MVELToJavaRewriter {
         unitContext = (CompilationUnitContext) JavaParserFactory.getContext(context.getUnit(), context.getTypeSolver());
         Solver solver = context.getFacade().getSymbolSolver();
         coercer = context.getCoercer();
+        overloader = context.getOverloader();
 
         declaredVars = new HashSet<>();
 
@@ -117,8 +122,11 @@ public class MVELToJavaRewriter {
 
         nodeMap = new IdentityHashMap<>();
 
-        ResolvedReferenceTypeDeclaration d = mapType.asReferenceType().getTypeDeclaration().get();
-        mapGetMethod = findGetterSetter("get", "", 1, d);
+        ResolvedReferenceTypeDeclaration m = mapType.asReferenceType().getTypeDeclaration().get();
+        mapGetMethod = findGetterSetter("get", "", 1, m);
+
+        ResolvedReferenceTypeDeclaration l = listType.asReferenceType().getTypeDeclaration().get();
+        listGetMethod = findGetterSetter("get", "", 1, l);
     }
 
     private void rewriteNode(Node node) {
@@ -179,6 +187,15 @@ public class MVELToJavaRewriter {
                 if (lastBinaryExpr == null) {
                     processBinaryExpr(binExpr, binExpr.getRight());
                 }
+
+                break;
+            case "ArrayCreationExpr":
+                ArrayCreationExpr arrayCreationExpr = (ArrayCreationExpr) node;
+                if (arrayCreationExpr.getInitializer().isPresent()) {
+                    ArrayInitializerExpr initExpr = ((ArrayCreationExpr) node).getInitializer().get();
+                    ResolvedType resolvedType = arrayCreationExpr.getElementType().resolve();
+                    rewriteArrayInitializer(resolvedType, initExpr);
+                }
                 break;
             case "MethodCallExpr":
                 MethodCallExpr methodCall = (MethodCallExpr) node;
@@ -227,14 +244,42 @@ public class MVELToJavaRewriter {
             lastBinaryExpr = binExpr;
         }
 
+        if (node == rootBinaryExpr) {
+            // the whole of the tree for rootBinaryExpr has been visited, so null
+            rootBinaryExpr = null;
+        }
+
+    }
+
+    private void rewriteArrayInitializer(ResolvedType elementType, ArrayInitializerExpr initExpr) {
+        for (int i = 0; i < initExpr.getValues().size(); i++) {
+            Expression expr = initExpr.getValues().get(i);
+            if (expr.isArrayInitializerExpr()) {
+                // it's nested array
+                rewriteArrayInitializer(elementType, expr.asArrayInitializerExpr());
+            } else {
+                ResolvedType exprType = expr.calculateResolvedType();
+                if (!isAssignableBy(exprType, elementType)) {
+                    Expression coerced = coercer.coerce(exprType, expr, elementType);
+                    if ( coerced != null) {
+                        initExpr.getValues().set(i, coerced);
+                    } else {
+                        throw new RuntimeException("Cannot be cast or coerced: " + expr);
+                    }
+                }
+
+            }
+        }
     }
 
     private void maybeCoerceArguments(MethodCallExpr methodCall) {
         // Get the Method declaration and it's resolved types.
+        // @TODO this currently does not work for method calls without scopes, i.e. member methods or static methods (mdp)
         ResolvedType scope = context.getFacade().getType(methodCall.getScope().get());
         ResolvedType resolvedScope = methodCall.getScope().get().calculateResolvedType();
 
         List<ResolvedMethodDeclaration> methods = scope.asReferenceType().getAllMethods();
+
         List<ResolvedType> argTypes = Arrays.asList(new ResolvedType[methodCall.getArguments().size()]);
         for (int i = 0; i < methodCall.getArguments().size(); i++ ) {
             argTypes.set(i, methodCall.getArguments().get(i).calculateResolvedType());
@@ -277,7 +322,7 @@ public class MVELToJavaRewriter {
                         paramType = getActualResolvedTypeForTypeParameter(paramType, resolvedScope);
                     }
 
-                    if (!paramType.isAssignableBy(argTypes.get(i))) {
+                    if (!isAssignableBy(argTypes.get(i), paramType)) {
                         // else try coercion
                         Expression result = coercer.coerce(argTypes.get(i), methodCall.getArguments().get(i), paramType);
                         if (result == null) {
@@ -339,7 +384,7 @@ public class MVELToJavaRewriter {
         ResolvedType targetType = context.getFacade().convertToUsage(node.getType());
 
         ResolvedType sourceType = node.getExpression().calculateResolvedType();
-        if (sourceType.isAssignableBy(targetType)) {
+        if (isAssignableBy(targetType, sourceType)) {
             // have to put into an () enclosure, as this was not in the original grammar due to #....#
             EnclosedExpr enclosure = new EnclosedExpr();
             node.replace(enclosure);
@@ -437,20 +482,32 @@ public class MVELToJavaRewriter {
             ArrayAccessExpr arrayAccessor = (ArrayAccessExpr) target;
             rewriteNode(arrayAccessor.getName());
 
-            ResolvedType resolvedType = arrayAccessor.getName().calculateResolvedType();
+            ResolvedType array = arrayAccessor.getName().calculateResolvedType();
 
 
-            boolean isMap = resolvedType.isAssignableBy(mapType);
-            boolean isList = resolvedType.isAssignableBy(listType);
+            boolean isMap = isAssignableBy(array, mapType);
+            boolean isList = isAssignableBy(array, listType);
             MethodUsage putSet = getPutSet(isMap, isList);
 
             Expression value = assignExpr.getValue();
             int paramIndex = 1;
 
-            Supplier<MethodUsage> getterUsageSupplier = () -> !resolvedType.isArray() ? getMethod("get", arrayAccessor.getName(), 1) : null;
-            Function<MethodUsage, MethodCallExpr>  getterExprFunction = (m) -> new MethodCallExpr(m.getName(), arrayAccessor.getIndex());
+            Supplier<MethodCallExpr>  methodCallSupplier = () -> {
+                if (array.isArray()) {
+                    return null;
+                }
 
-            rewriteAssign(putSet, getterUsageSupplier, getterExprFunction,
+                MethodUsage m;
+                if (isMap) {
+                    m = mapGetMethod;
+                } else {
+                    m = listGetMethod;
+                }
+
+                return new MethodCallExpr(m.getName(), arrayAccessor.getIndex());
+            };
+
+            rewriteAssign(putSet, methodCallSupplier,
                           value, paramIndex, arrayAccessor.getName(), assignExpr, target,
                           (v) -> new Expression[] {arrayAccessor.getIndex(), v});
 
@@ -463,10 +520,12 @@ public class MVELToJavaRewriter {
             MethodUsage setter = getMethod("set", fieldAccessor, 1);
             int paramIndex = 0;
 
-            Supplier<MethodUsage> getterUsageSupplier = () -> getMethod("get", fieldAccessor, 0);
-            Function<MethodUsage, MethodCallExpr>  getterExprFunction = (m) -> new MethodCallExpr(m.getName());
+            Supplier<MethodCallExpr>  methodCallSupplier = () -> {
+                MethodUsage methodUsage = getMethod("get", fieldAccessor, 0);
+                return methodUsage != null ? new MethodCallExpr(methodUsage.getName()) : null;
+            };
 
-            rewriteAssign(setter, getterUsageSupplier, getterExprFunction, value, paramIndex, ((FieldAccessExpr) target).getScope(), assignExpr, target,
+            rewriteAssign(setter, methodCallSupplier, value, paramIndex, ((FieldAccessExpr) target).getScope(), assignExpr, target,
                           (v) -> new Expression[] {v});
         } else if (target instanceof NameExpr){
             NameExpr nameExpr = (NameExpr) target;
@@ -525,85 +584,95 @@ public class MVELToJavaRewriter {
             }
 
             Expression value = assignExpr.getValue();
-            rewriteAssign(null, () -> null, (e) -> null,  value, -1, null, assignExpr, target,
+            rewriteAssign(null, () -> null,value, -1, null, assignExpr, target,
                           (v) -> new Expression[] {v});
         }
     }
 
-    private void rewriteAssign(MethodUsage setter, Supplier<MethodUsage> getterSupplier, Function<MethodUsage, MethodCallExpr> getterFunction,
+    private void rewriteAssign(MethodUsage setter, Supplier<MethodCallExpr> getterFunction,
                                Expression value, int paramIndex, Expression scope,
                                AssignExpr assignExpr, Expression target, Function<Expression, Expression[]> getArgs) {
         // Below uses target/value as well as left and right as var names.
         // This is because  it starts as an AssignExpression, which is target/value.
-        // However a compound operator will requiet a sub-part to be rewritten as
+        // However, a compound operator will requiet a sub-part to be rewritten as
         // a BinaryExpression. At this point the target/value maps as target == left and value == right.
         // Once rewritten it maps right back to value again.
 
-        ResolvedType valueType;
         ResolvedType targetType;
-        if (assignExpr.getOperator() != Operator.ASSIGN) {
-            MethodUsage getterMethodUsage = getterSupplier.get();
-
-            Expression left = target;
-            Expression right = value;
-
-            ResolvedType leftType;
-            if (getterMethodUsage != null) {
-                MethodCallExpr getterExpr = getterFunction.apply(getterMethodUsage);
-                getterExpr.setScope(scope.clone());
-                left = getterExpr;
-                leftType = getterMethodUsage.returnType();
-            } else {
-                leftType = target.calculateResolvedType();
-            }
-
-            ResolvedType rightType = right.calculateResolvedType();
-
-            // resolve the TypeParameter if one exists and then coerce
-            if (leftType.isTypeVariable()) {
-                leftType = getActualResolvedTypeForTypeParameter(leftType, scope.calculateResolvedType());
-            }
-
-            targetType = leftType;
-
-
-            if (setter == null && leftType.isNumericType() && rightType.isNumericType() &&
-                leftType.isAssignableBy(rightType)) {
-                // No method rewrite and no coercion needed, so return
-                return;
-            }
-
-            Expression   coerced   = coercer.coerce(rightType, right, leftType);
-            if (coerced != null) {
-                assignExpr.setValue(coerced);
-                right = coerced;
-                rightType = leftType;
-            }
-
-            // leftype was the target, so this has to be the widest and the potential BigNumber
-            if (isBigNumber(leftType)) {
-                Expression methodCallExpr = rewriteBigNumberOperator(left, leftType, right, rightType, getOperator(assignExpr));
-                value = methodCallExpr;
-                valueType = leftType;
-                assignExpr.setOperator(Operator.ASSIGN);
-            } else if ( setter != null) {
-                BinaryExpr binaryExpr = new BinaryExpr(left, right, getOperator(assignExpr));
-                value = binaryExpr;
-                valueType = leftType;
-                assignExpr.setOperator(Operator.ASSIGN);
-            } else {
-                value = coerced;
-                valueType = leftType;
-            }
+        if ( setter != null) {
+            targetType = setter.getParamType(paramIndex);
         } else {
-            valueType = value.calculateResolvedType();
             targetType = target.calculateResolvedType();
         }
 
+        // If the targetType is a generic TypeParameter, then resolve that
+        if (targetType.isTypeVariable()) {
+            targetType = getActualResolvedTypeForTypeParameter(targetType, scope.calculateResolvedType());
+        }
+
+        ResolvedType valueType = value.calculateResolvedType();
+
+        // Does anything need coercing?
+        Expression coerced = coercer.coerce(valueType, value, targetType);
+        if (coerced != null) {
+            value = coerced;
+            valueType = targetType;
+        }
+
+        // Check this is either String assignment or numeric (which doesn't require operator overloading).
+        if ( setter == null && (isAssignableBy(targetType, stringType) ||
+             valueType.isNumericType() && targetType.isNumericType())) {
+
+            // If the value was coerced, then set the coerced version.
+            if (assignExpr.getValue() != value) {
+                assignExpr.setValue(value);
+            }
+
+            // nothing else to rewrite
+            return;
+        }
+
+        if (assignExpr.getOperator() != Operator.ASSIGN) {
+            if (!isAssignableBy(valueType, targetType)){
+                // No coercion possible, but types not assignable, so this cannot progress.
+                throw new RuntimeException("Invalid statement with compount operator '" + assignExpr.getOperator() + "'. " + value + " cannot be coerced or assigned to " + target);
+            }
+
+            // map target and value to the left and right of the BinaryExpr
+            Expression left = target;
+            Expression right = value;
+
+            // If there is a getter, use it.
+            MethodCallExpr getterExpr = getterFunction.get();
+            if (getterExpr != null) {
+                getterExpr.setScope(scope.clone());
+                left = getterExpr;
+            }
+
+            ResolvedType rightType = valueType;
+            ResolvedType leftType = targetType;
+
+            Expression overloaded = overloader.overload(leftType, left, right, getOperator(assignExpr));
+            if (overloaded != null) {
+                value = overloaded;
+            } else {
+                BinaryExpr binExpr = new BinaryExpr(left, right, getOperator(assignExpr));
+                BinaryExprTypes binExprTypes = new BinaryExprTypes(binExpr);
+                binExprTypes.setLeft(left, leftType);
+                binExprTypes.setRight(right, rightType);
+
+                value = binExpr;
+            }
+            assignExpr.setValue(value);
+            assignExpr.setOperator(Operator.ASSIGN);
+        }
+
         if (setter != null) {
-            rewriteAssignmentToMethod(value, valueType, setter, paramIndex, scope, assignExpr, getArgs);
-        } else {
-            maybeAssignMaybeCoercedValue(value, valueType, assignExpr, targetType);
+            MethodCallExpr method = new MethodCallExpr(setter.getName(), getArgs.apply(value));
+            method.setScope(scope);
+            assignExpr.replace(method);
+        } else if (assignExpr.getValue() != value) {
+            assignExpr.setValue(value);
         }
     }
 
@@ -683,7 +752,7 @@ public class MVELToJavaRewriter {
                     break;
                 }
             }
-            mapPut = putSet;
+            return mapPut = putSet;
         } else if (isList) {
             if (listSet != null) {
                 return listSet;
@@ -695,11 +764,10 @@ public class MVELToJavaRewriter {
                     break;
                 }
             }
-            listSet = putSet;
+            return listSet = putSet;
         }
 
-
-        return putSet;
+        return null;
     }
 
     private static BinaryExpr.Operator getOperator(AssignExpr n) {
@@ -741,7 +809,10 @@ public class MVELToJavaRewriter {
             Node parent = binExpr.getParentNode().get();
 
             nodeMap.remove(binExpr);
-            rewrite(types);
+            Expression overloaded = rewrite(types, true);
+            if (overloaded != null) {
+                binExpr.replace(overloaded);
+            }
 
             if (binExpr != rootBinaryExpr) {
                 Node current = parent;
@@ -755,93 +826,62 @@ public class MVELToJavaRewriter {
         }
     }
 
-    public Expression rewrite(BinaryExprTypes binExprTypes) {
-        Expression e1 = null;
-        Expression e2 = null;
-        if (binExprTypes.binaryExpr.getLeft().getClass() != NullLiteralExpr.class &&
-            isBigNumber(binExprTypes.leftType)) {
-            e1 = binExprTypes.left;
-            e2 = binExprTypes.right;
-        } else if (binExprTypes.binaryExpr.getRight().getClass() != NullLiteralExpr.class &&
-                   isBigNumber(binExprTypes.rightType)) {
-            e1 = binExprTypes.right;
-            e2 = binExprTypes.left;
+    public Expression rewrite(BinaryExprTypes binExprTypes, boolean coerce) {
+        Expression left = binExprTypes.left;
+        ResolvedType leftType = binExprTypes.leftType;
+
+        Expression right = binExprTypes.right;
+        ResolvedType rightType = binExprTypes.rightType;
+
+        // This handles a special case for + and Strings in binary expressions
+        if (binExprTypes.getBinaryExpr().getOperator() == BinaryExpr.Operator.PLUS &&
+            (isAssignableBy(leftType, stringType) || isAssignableBy(rightType, stringType))) {
+            return null;
         }
 
-        Expression methodCallExpr = rewrite(binExprTypes.getBinaryExpr(), e1, e2);
-
-        return methodCallExpr;
-    }
-
-    private Expression rewrite(BinaryExpr binExpr, Expression e1, Expression e2) {
-        Expression methodCallExpr = null;
-        if (e1 != null && e2 != null) {
-            ResolvedType e1Type = e1.calculateResolvedType();
-            ResolvedType e2Type = e2.calculateResolvedType();
-
-            if (binExpr.getOperator() == BinaryExpr.Operator.PLUS &&
-                (stringType.isAssignableBy(e1Type) || stringType.isAssignableBy(e2Type))) {
-                // Do not rewrite this, because it's a string concatenation, due to JVM operator overloading.
-                return null;
-            }
-
-            Expression   coerced   = coercer.coerce(e2Type, e2, e1Type);
+        if (coerce) {
+            // This is for the generalised cases. First try to coerce right to left, then try left to right.
+            Expression coerced = coercer.coerce(rightType, right, leftType);
             if (coerced != null) {
-                e2 = coerced;
+                right     = coerced;
+                rightType = leftType;
+                binExprTypes.setRight(right, rightType);
+                binExprTypes.binaryExpr.setRight(right);
+            } else {
+                coerced = coercer.coerce(leftType, left, rightType);
+                if (coerced != null) {
+                    left     = coerced;
+                    leftType = rightType;
+                    binExprTypes.setLeft(left, leftType);
+                    binExprTypes.binaryExpr.setLeft(left);
+                }
             }
-
-            BinaryExpr.Operator opEnum = binExpr.getOperator();
-            methodCallExpr = rewriteBigNumberOperator(e1, e1Type, e2, e2Type, opEnum);
-
-            binExpr.replace(methodCallExpr);
         }
-        return methodCallExpr;
+
+        Expression overloaded = overloader.overload(leftType, left, right, binExprTypes.binaryExpr.getOperator());
+        return overloaded;
     }
 
     boolean isBigNumber(ResolvedType type) {
-        if (bigDecimalType.isAssignableBy(type) || bigIntegerType.isAssignableBy(type)) {
+        if (isAssignableBy(type, bigDecimalType)) {
+            return true;
+        }
+
+        if (isAssignableBy(type, bigIntegerType)) {
             return true;
         }
 
         return false;
     }
 
-    private Expression rewriteBigNumberOperator(Expression e1, ResolvedType e1Type, Expression e2, ResolvedType e2Type, BinaryExpr.Operator opEnum) {
-        String op = null;
-        Expression result = null;
-
-        switch (opEnum) {
-            case MULTIPLY : op = "multiply"; break;
-            case DIVIDE : op = "divide"; break;
-            case PLUS : op = "add"; break;
-            case MINUS : op = "subtract"; break;
-            case REMAINDER : op = "remainder"; break;
-            case EQUALS : op = "compareTo"; break;
-            case NOT_EQUALS : op = "compareTo"; break;
-            case GREATER : op = "compareTo"; break;
-            case GREATER_EQUALS : op = "compareTo"; break;
-            case LESS : op = "compareTo"; break;
-            case LESS_EQUALS : op = "compareTo"; break;
+    public static boolean isAssignableBy(ResolvedType source, ResolvedType target) {
+        if (!source.isNull() && target.isAssignableBy(source)) {
+            return true;
         }
 
-        MethodCallExpr methodCallExpr;
-
-        List<Expression> children = getArgumentsWithUnwrap(e2);
-        if (!op.equals("compareTo") && e1Type.equals(bigDecimalType)) {
-            // an array is used, because BigDecimal takes a second argument for the mathContext
-            children.add(mathContext);
-        }
-
-        methodCallExpr = new MethodCallExpr(op, children.toArray( new Expression[0]));
-        methodCallExpr.setScope(e1);
-        result = methodCallExpr;
-
-        if (op.equals("compareTo")) {
-            result = new BinaryExpr(methodCallExpr, new IntegerLiteralExpr("0"), opEnum);
-        }
-
-        return result;
+        return false;
     }
+
 
     public static List<Expression> getArgumentsWithUnwrap(Expression e) {
         List<Expression> children = new ArrayList<>();
@@ -870,7 +910,7 @@ public class MVELToJavaRewriter {
         }
         Expression arg = null;
         MethodUsage getter = null;
-        if ( mapType.isAssignableBy(type)) {
+        if ( isAssignableBy(type, mapType) ) {
             getter = mapGetMethod;
             arg = new StringLiteralExpr(n.getNameAsString());
         } else {
@@ -980,13 +1020,17 @@ public class MVELToJavaRewriter {
     }
 
     public static MethodUsage findGetterSetter(String getterSetter, String name, int x, ResolvedReferenceTypeDeclaration d) {
+        String is = null;
+        if (getterSetter.equals("get")) {
+            is = getterSetter("is", name);
+        }
         String getterTarget = getterSetter(getterSetter, name);
         for (MethodUsage candidate : d.getAllMethods()) {
             String methodName = candidate.getName();
             if (candidate.getDeclaration().accessSpecifier() == AccessSpecifier.PUBLIC &&
                 !candidate.getDeclaration().isStatic() &&
                 candidate.getNoParams() == x &&
-                (methodName.equals(getterTarget) || methodName.equals(name))) {
+                (methodName.equals(getterTarget) || methodName.equals(name) || methodName.equals(is))) {
                 return candidate;
             }
         }
@@ -1038,8 +1082,12 @@ public class MVELToJavaRewriter {
         }
 
         public void setLeft(Expression left) {
+            setLeft(left, left.calculateResolvedType());
+        }
+
+        public void setLeft(Expression left, ResolvedType leftType) {
             this.left = left;
-            this.leftType = left.calculateResolvedType();
+            this.leftType = leftType;
         }
 
         public Expression getRight() {
@@ -1047,10 +1095,12 @@ public class MVELToJavaRewriter {
         }
 
         public void setRight(Expression right) {
-            short a = 10;
-            Short.valueOf(a);
+            setRight(right, right.calculateResolvedType());
+        }
+
+        public void setRight(Expression right, ResolvedType rightType) {
             this.right = right;
-            this.rightType = right.calculateResolvedType();
+            this.rightType = rightType;
         }
 
         public ResolvedType getLeftType() {

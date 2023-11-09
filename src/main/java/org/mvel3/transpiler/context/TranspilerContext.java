@@ -25,6 +25,7 @@ import com.github.javaparser.symbolsolver.javaparsermodel.JavaParserFacade;
 import org.mvel2.EvaluatorBuilder.EvaluatorInfo;
 import org.mvel3.parser.MvelParser;
 import org.mvel3.parser.printer.CoerceRewriter;
+import org.mvel3.parser.printer.OverloadRewriter;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -51,6 +52,8 @@ public class TranspilerContext<T, K, R> {
 
     private CoerceRewriter coercer;
 
+    private OverloadRewriter overloader;
+
     public TranspilerContext(MvelParser parser, TypeSolver typeSolver, EvaluatorInfo<T, K, R> evaluatorInfo) {
         this.parser = parser;
         this.typeSolver = typeSolver;
@@ -58,6 +61,7 @@ public class TranspilerContext<T, K, R> {
         this.symbolResolver = (JavaSymbolSolver) parserConfiguration.getSymbolResolver().get();
         this.facade = JavaParserFacade.get(typeSolver);
         this.coercer = new CoerceRewriter(this);
+        this.overloader = new OverloadRewriter(this);
         this.evaluatorInfo = evaluatorInfo;
         this.inputs = new HashSet<>();
     }
@@ -108,6 +112,10 @@ public class TranspilerContext<T, K, R> {
 
     public CoerceRewriter getCoercer() {
         return coercer;
+    }
+
+    public OverloadRewriter getOverloader() {
+        return overloader;
     }
 
     public ClassOrInterfaceDeclaration getClassDeclaration() {

@@ -51,6 +51,16 @@ public class Person {
 
     public int[] publicIntArray;
 
+    public BigInteger publicBigInt;
+
+    public BigDecimal publicBigDec;
+
+    public Map<String, BigDecimal> publicMapBigDec;
+
+    public List<BigDecimal> publicListBigDec;
+
+    public BigDecimal[] publicArrayBigDec;
+
     public Person(String name) {
         this(name, null);
     }
@@ -157,6 +167,10 @@ public class Person {
     }
 
     public Map<String, BigInteger> getBigIntegerMap() {
+        return null;
+    }
+
+    public Map<String, BigDecimal> getBigDecimalMap() {
         return null;
     }
 }

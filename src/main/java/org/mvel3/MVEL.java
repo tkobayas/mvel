@@ -25,6 +25,7 @@ import org.mvel2.EvaluatorBuilder.EvaluatorInfo;
 import org.mvel3.transpiler.context.Declaration;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -48,12 +49,11 @@ public class MVEL {
 
     ClassManager clsManager = new ClassManager();
 
-    public <T extends Map, Void, R> Evaluator<T, Void, R> compileMapEvaluator(final String providedExpr, final Class<R> outClass, final Set<String> imports, final Map<String, Type> types) {
-        String actualExpression = maybeWrap(providedExpr);
+    public <T extends Map, Void, R> Evaluator<T, Void, R> compileMapEvaluator(final String content, final Class<R> outClass, final Set<String> imports, final Map<String, Type> types) {
         MVELCompiler MVELCompiler = new MVELCompiler();
         EvaluatorBuilder<T, Void, R> eval = new EvaluatorBuilder<>();
         eval.setClassManager(clsManager).setClassLoader(ClassLoader.getSystemClassLoader())
-            .setExpression(actualExpression)
+            .setExpression(content)
             .setImports(imports)
             .setVariableInfo(ContextInfoBuilder.create(Type.type(Map.class, "<String, Object>"))
                                                .setVars(Declaration.from(types)))
@@ -64,12 +64,11 @@ public class MVEL {
         return  evaluator;
     }
 
-    public <T extends List, Void, R> Evaluator<T, Void, R> compileListEvaluator(final String providedExpr, Class<R> outClass, final Set<String> imports, final Declaration[] types) {
-        String actualExpression = maybeWrap(providedExpr);
+    public <T extends List, Void, R> Evaluator<T, Void, R> compileListEvaluator(final String content, Class<R> outClass, final Set<String> imports, final Declaration[] types) {
         MVELCompiler MVELCompiler = new MVELCompiler();
         EvaluatorBuilder<T, Void, R> eval = new EvaluatorBuilder<>();
         eval.setClassManager(clsManager).setClassLoader(ClassLoader.getSystemClassLoader())
-            .setExpression(actualExpression)
+            .setExpression(content)
             .setImports(imports)
             .setVariableInfo(ContextInfoBuilder.create(Type.type(List.class, "<Object>"))
                                                .setVars(types))
@@ -96,6 +95,10 @@ public class MVEL {
 //
 //        return  evaluator;
 //    }
+
+    public Object executeExpression(final String content) {
+        return executeExpression(content, new HashSet<>(), new HashMap<>(), Object.class);
+    }
 
     public Object executeExpression(final String expression, Set<String> imports, final Map<String, Object> vars) {
         return executeExpression(expression, imports, vars, Object.class);
@@ -133,13 +136,14 @@ public class MVEL {
         return evaluator.eval(vars);
     }
 
-    private static String maybeWrap(String providedExpr) {
-        String actualExpr = providedExpr;
-        if ( !providedExpr.contains(";")) { // @TODO this is aa very crude sniff. Personally I'd rather not sniff and instead have two different method calls (mdp)
-            //actualExpr = "{ return " + providedExpr + ";}";
-            actualExpr = "return " + providedExpr + ";";
+    public static Map<String, Type> getTypeMap(Map<String, Object> vars) {
+        Map<String, Type> types = new HashMap<>();
+
+        for (Map.Entry<String, Object> o : vars.entrySet()) {
+            types.put(o.getKey(), Type.type(o.getValue() != null ? o.getValue().getClass() : null));
         }
-        return actualExpr;
+
+        return types;
     }
 
     public static <T> T putMap(Map map, String key, T v) {

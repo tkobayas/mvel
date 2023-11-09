@@ -14,6 +14,7 @@ import org.mvel3.TranspilerTest;
 import org.mvel3.Type;
 import org.mvel3.transpiler.context.Declaration;
 
+import java.math.BigDecimal;
 import java.util.*;
 import java.io.Serializable;
 
@@ -25,19 +26,20 @@ import static org.mvel2.MVEL.executeExpression;
 public class ControlFlowTests extends AbstractTest {
 
   public void testSimpleIfStatement() {
-    test("if (true) { System.out.println(\"test!\") }     \n");
+    assertEquals(3, test("var x = 1; if (true) { ++x; }; ++x   ;"));
   }
 
   public void testAnd() {
-    assertEquals(true, test("c != null && foo.bar.name == 'dog' && foo.bar.woof"));
+    assertEquals(true, test("c != null && foo.bar.name == \"dog\" && foo.bar.woof"));
   }
 
   public void testAnd2() {
-    assertEquals(true, test("c!=null&&foo.bar.name=='dog'&&foo.bar.woof"));
+    assertEquals(true, test("c!=null&&foo.bar.name==\"dog\"&&foo.bar.woof"));
   }
 
   public void testComplexAnd() {
-    assertEquals(true, test("(pi * hour) > 0 && foo.happy() == 'happyBar'"));
+    assertEquals(true, test("(pi * hour) > 0 && foo.happy() == \"happyBar\""));
+    new BigDecimal(19.9d);
   }
 
   public void testShortPathExpression() {
@@ -379,16 +381,6 @@ public class ControlFlowTests extends AbstractTest {
     propertyMap.put("GEBDAT", c1.getTime());
     objectMap.put("EV_VI_ANT1", propertyMap);
 
-//    TranspilerTest tester = new TranspilerTest() {};
-//    tester.test(ctx -> {
-//          ctx.addImport("java.util.Date");
-//          ctx.setVariableInfo(ContextInfoBuilder.create(Type.type(Map.class, "<String, Map<String, Date>>")));
-//          ctx.setRootDeclaration(Declaration.of("context", Type.type(Map.class, "<String, Map<String, Date>>")));
-//        },
-//        "return new org.mvel2.tests.core.res.PDFFieldUtil().calculateAge(EV_VI_ANT1.GEBDAT) >= 25 ? 'Y' : 'N';",
-//        "return new org.mvel2.tests.core.res.PDFFieldUtil().calculateAge(context.get(\"EV_VI_ANT1\").get(\"GEBDAT\"))>= 25 ? 'Y' : 'N';\n"
-//        );
-
     Set<String> imports = new HashSet<>();
     imports.add("java.util.Date");
     imports.add("java.util.Map");
@@ -411,10 +403,6 @@ public class ControlFlowTests extends AbstractTest {
 
     assertEquals("N",
                  evaluator.eval(objectMap));
-  }
-
-  public java.lang.Object eval2(java.util.Map<String, Map<String, Date>> context) {
-    return new org.mvel2.tests.core.res.PDFFieldUtil().calculateAge(context.get("EV_VI_ANT1").get("GEBDAT")) >= 25 ? 'Y' : 'N';
   }
 
   public void testSubEvaluation() {
@@ -456,11 +444,9 @@ public class ControlFlowTests extends AbstractTest {
         "System.out.println(\"LOOP\" + i);\n" +
         "return true;\n" +
         "}\n" +
-        "System.out.println(\"END\");";
+        "return false;";
 
-    Serializable s = MVEL.compileExpression(ex);
-
-    assertEquals(true, MVEL.executeExpression(s, new HashMap()));
+    assertEquals(true, org.mvel3.MVEL.get().executeExpression(ex));
   }
 
   public final void testFunctionCall() {

@@ -23,7 +23,9 @@ import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
+import com.github.javaparser.ast.expr.Expression;
 import com.github.javaparser.ast.stmt.BlockStmt;
+import com.github.javaparser.ast.stmt.ExpressionStmt;
 import com.github.javaparser.ast.stmt.ReturnStmt;
 import com.github.javaparser.ast.stmt.Statement;
 import com.github.javaparser.ast.type.ClassOrInterfaceType;
@@ -96,17 +98,27 @@ public class MVELTranspiler {
         }
     }
 
-    public TranspiledBlockResult transpileBlock(String mvelBlock, EvalPre evalPre) {
-        // wrap as expression/block may or may not have {}, then unwrap latter.
-        ParseResult<BlockStmt> result = context.getParser().parseBlock("{" + mvelBlock + "}");
+    public TranspiledBlockResult transpileBlock(String content, EvalPre evalPre) {
+        BlockStmt blockStmt;
 
-        if (!result.isSuccessful()) {
-            throw new RuntimeException(result.getProblems().toString());
+        try {
+            // wrap as expression/block may or may not have {}, then unwrap latter.
+            blockStmt = handleParserResult(context.getParser().parseBlock("{" + content + "}"));
+        } catch (RuntimeException e) {
+            // Block failed, try parsing an expression
+            Expression expr = handleParserResult(context.getParser().parseExpression(content));
+            if (context.getEvaluatorInfo().outType().isVoid()) {
+                ExpressionStmt exprStmt = new ExpressionStmt(expr);
+                blockStmt = new  BlockStmt(NodeList.nodeList(exprStmt));
+            } else {
+                ReturnStmt returnStmt = new ReturnStmt(expr);
+                blockStmt = new  BlockStmt(NodeList.nodeList(returnStmt));
+            }
+
         }
-        BlockStmt mvelExpression = result.getResult().get();
 
         VariableAnalyser analyser = new VariableAnalyser(context.getEvaluatorInfo().allVars().keySet());
-        mvelExpression.accept(analyser, null);
+        blockStmt.accept(analyser, null);
 
         if (!context.getEvaluatorInfo().rootDeclaration().type().isVoid()) {
             analyser.getUsed().add(context.getEvaluatorInfo().rootDeclaration().name());
@@ -114,7 +126,7 @@ public class MVELTranspiler {
 
         analyser.getUsed().stream().forEach(v -> context.addInput(v));
 
-        preprocessPhase.removeEmptyStmt(mvelExpression);
+        preprocessPhase.removeEmptyStmt(blockStmt);
 
         CompilationUnit unit = new CompilationUnit("org.mvel3");
         context.setUnit(unit);
@@ -142,8 +154,8 @@ public class MVELTranspiler {
 
         method.addParameter(handleParserResult(context.getParser().parseType(evalInfo.variableInfo().type().getCanonicalGenericsName())), "context");
 
-        NodeList<Statement> tempStmts = evalPre.evalPre(evalInfo, context, mvelExpression.getStatements());
-        mvelExpression.setStatements(tempStmts);
+        NodeList<Statement> tempStmts = evalPre.evalPre(evalInfo, context, blockStmt.getStatements());
+        blockStmt.setStatements(tempStmts);
 
         // post to add in returns
 //
@@ -158,10 +170,10 @@ public class MVELTranspiler {
 //            rewrittenStmt = new BlockStmt(nodeList);
 //        }
 
-        if (mvelExpression.getStatements().size() == 1 && mvelExpression.getStatement(0).isBlockStmt()) {
-            method.setBody(mvelExpression.getStatement(0).asBlockStmt());
+        if (blockStmt.getStatements().size() == 1 && blockStmt.getStatement(0).isBlockStmt()) {
+            method.setBody(blockStmt.getStatement(0).asBlockStmt());
         } else {
-            method.setBody(mvelExpression);
+            method.setBody(blockStmt);
         }
 
         context.getSymbolResolver().inject(unit);
