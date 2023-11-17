@@ -34,7 +34,7 @@ import com.github.javaparser.ast.type.Type;
 import com.github.javaparser.resolution.MethodUsage;
 import com.github.javaparser.resolution.declarations.ResolvedReferenceTypeDeclaration;
 import com.github.javaparser.resolution.types.ResolvedType;
-import org.mvel2.EvaluatorBuilder.EvaluatorInfo;
+import org.mvel3.EvaluatorBuilder.EvaluatorInfo;
 import org.mvel3.javacompiler.KieMemoryCompiler;
 import org.mvel3.parser.printer.MVELToJavaRewriter;
 import org.mvel3.parser.printer.PrintUtil;
@@ -47,7 +47,6 @@ import org.mvel3.util.StringUtils;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 
 import static org.mvel3.transpiler.MVELTranspiler.handleParserResult;
@@ -62,18 +61,15 @@ public class MVELCompiler {
     }
     public <T, K, R> TranspiledResult transpile(EvaluatorInfo<T, K, R> info) {
         EvalPre  evalPre;
-        switch(info.variableInfo().type().getClazz().getSimpleName()){
+        switch(info.variableInfo().declaration().type().getClazz().getSimpleName()){
             case "Map":
                 evalPre = (evalInfo, context, statements) -> {
                     NodeList tempStmts = new NodeList<Statement>();
                     context.getInputs().stream().forEach(var -> {
-                        if (evalInfo.rootDeclaration().name().equals(var)) {
-                            // This is the root var, it will map to a parameter name already
-                            return;
-                        }
                         Declaration declr = evalInfo.allVars().get(var);
 
-                        MethodCallExpr methodCallExpr = new MethodCallExpr(new NameExpr("context"), "get", NodeList.nodeList(new StringLiteralExpr(declr.name())));
+                        MethodCallExpr methodCallExpr = new MethodCallExpr(new NameExpr(evalInfo.variableInfo().declaration().name()),
+                                                                           "get", NodeList.nodeList(new StringLiteralExpr(declr.name())));
                         Type castType = handleParserResult(context.getParser().parseType(declr.type().getCanonicalGenericsName()));
                         CastExpr castExpr = new CastExpr(castType.clone(),
                                                          methodCallExpr);
@@ -97,7 +93,7 @@ public class MVELCompiler {
                     for ( int i  = 0; i < evalInfo.variableInfo().vars().length; i++) {
                         Declaration declr = evalInfo.variableInfo().vars()[i];
                         if (context.getInputs().contains(declr.name())) {
-                            MethodCallExpr methodCallExpr = new MethodCallExpr(new NameExpr("context"), "get", NodeList.nodeList(new IntegerLiteralExpr(i)));
+                            MethodCallExpr methodCallExpr = new MethodCallExpr(new NameExpr(evalInfo.variableInfo().declaration().name()), "get", NodeList.nodeList(new IntegerLiteralExpr(i)));
                             CastExpr castExpr = new CastExpr(handleParserResult(context.getParser().parseType(declr.type().getCanonicalGenericsName())),
                                                              methodCallExpr);
 
@@ -121,12 +117,12 @@ public class MVELCompiler {
                     context.getInputs().stream().forEach(var -> {
                         Declaration declr = evalInfo.allVars().get(var);
 
-                        ResolvedType                     resolvedType = context.getFacade().getSymbolSolver().classToResolvedType(info.variableInfo().type().getClazz());
+                        ResolvedType                     resolvedType = context.getFacade().getSymbolSolver().classToResolvedType(info.variableInfo().declaration().type().getClazz());
                         ResolvedReferenceTypeDeclaration d            = resolvedType.asReferenceType().getTypeDeclaration().get();
 
                         MethodUsage method = MVELToJavaRewriter.findGetterSetter("get", declr.name(), 0, d);
 
-                        MethodCallExpr methodCallExpr = new MethodCallExpr(new NameExpr("context"), method.getName());
+                        MethodCallExpr methodCallExpr = new MethodCallExpr(new NameExpr(info.variableInfo().declaration().name()), method.getName());
 
                         Type targetType = handleParserResult(context.getParser().parseType(declr.type().getCanonicalGenericsName()));
 

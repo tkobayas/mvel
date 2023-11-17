@@ -26,21 +26,21 @@ public class Declaration<T> {
 
     private final Type<T> type;
 
-    public static <T> Declaration of(String name, Class<T> clazz) {
+    public static <Y> Declaration of(String name, Class<Y> clazz) {
         return new Declaration(name, clazz);
     }
 
-    public static <T> Declaration of(String name, Type<T> type) {
+    public static <Y> Declaration of(String name, Type<Y> type) {
         return new Declaration(name, type);
     }
 
-    public static Declaration[] from(Map<String, Type> types) {
+    public static Declaration[] from(Map<String, Type<?>> types) {
         Declaration[]  declrs = types.entrySet().stream().map(e -> Declaration.of(e.getKey(), e.getValue()))
                                      .collect(Collectors.toList()).toArray(new Declaration[0]);
         return declrs;
     }
 
-    public Declaration(String name, Type type) {
+    public Declaration(String name, Type<T> type) {
         this.name = name;
         this.type = type;
     }

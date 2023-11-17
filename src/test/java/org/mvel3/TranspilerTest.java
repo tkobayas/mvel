@@ -16,8 +16,7 @@
 
 package org.mvel3;
 
-import org.mvel2.EvaluatorBuilder;
-import org.mvel2.EvaluatorBuilder.ContextInfoBuilder;
+import org.mvel3.EvaluatorBuilder.ContextInfoBuilder;
 import org.mvel3.transpiler.TranspiledResult;
 
 import java.math.BigDecimal;
@@ -28,7 +27,6 @@ import java.util.Map;
 import java.util.function.Consumer;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.in;
 
 public interface TranspilerTest {
 
@@ -83,8 +81,6 @@ public interface TranspilerTest {
 
     default void test(String inputExpression,
                       String expectedResult) {
-        System.out.println(inputExpression);
-        System.out.println(expectedResult);
         test(d -> {
         }, inputExpression, expectedResult, t -> {
         });

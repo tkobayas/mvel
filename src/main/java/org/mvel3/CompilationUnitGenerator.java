@@ -41,7 +41,7 @@ import com.github.javaparser.ast.stmt.ReturnStmt;
 import com.github.javaparser.ast.stmt.Statement;
 import com.github.javaparser.ast.type.ClassOrInterfaceType;
 import com.github.javaparser.ast.type.Type;
-import org.mvel2.EvaluatorBuilder.EvaluatorInfo;
+import org.mvel3.EvaluatorBuilder.EvaluatorInfo;
 import org.mvel3.parser.MvelParser;
 import org.mvel3.parser.printer.PrintUtil;
 import org.mvel3.transpiler.TranspiledResult;
@@ -142,12 +142,12 @@ public class CompilationUnitGenerator {
 
         Type contextType = null;
         Type returnType = null;
-        ParseResult<Type> parseTypeResults = parser.parseType(info.variableInfo().type().getCanonicalGenericsName());
+        ParseResult<Type> parseTypeResults = parser.parseType(info.variableInfo().declaration().type().getCanonicalGenericsName());
         if (parseTypeResults.isSuccessful()){
             contextType = parseTypeResults.getResult().get();
         }
 
-        parseTypeResults = parser.parseType(info.variableInfo().type().getCanonicalGenericsName());
+        parseTypeResults = parser.parseType(info.variableInfo().declaration().type().getCanonicalGenericsName());
         if (parseTypeResults.isSuccessful()){
             returnType = parseTypeResults.getResult().get();
         }

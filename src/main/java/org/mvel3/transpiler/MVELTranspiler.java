@@ -24,6 +24,8 @@ import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.expr.Expression;
+import com.github.javaparser.ast.expr.NameExpr;
+import com.github.javaparser.ast.expr.NullLiteralExpr;
 import com.github.javaparser.ast.stmt.BlockStmt;
 import com.github.javaparser.ast.stmt.ExpressionStmt;
 import com.github.javaparser.ast.stmt.ReturnStmt;
@@ -32,7 +34,8 @@ import com.github.javaparser.ast.type.ClassOrInterfaceType;
 import com.github.javaparser.resolution.TypeSolver;
 import com.github.javaparser.symbolsolver.JavaSymbolSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver;
-import org.mvel2.EvaluatorBuilder.EvaluatorInfo;
+import org.mvel3.EvaluatorBuilder.ContextInfo;
+import org.mvel3.EvaluatorBuilder.EvaluatorInfo;
 import org.mvel3.parser.MvelParser;
 import org.mvel3.parser.printer.MVELToJavaRewriter;
 import org.mvel3.parser.printer.PrintUtil;
@@ -114,13 +117,13 @@ public class MVELTranspiler {
                 ReturnStmt returnStmt = new ReturnStmt(expr);
                 blockStmt = new  BlockStmt(NodeList.nodeList(returnStmt));
             }
-
         }
 
         VariableAnalyser analyser = new VariableAnalyser(context.getEvaluatorInfo().allVars().keySet());
         blockStmt.accept(analyser, null);
 
-        if (!context.getEvaluatorInfo().rootDeclaration().type().isVoid()) {
+        if (!context.getEvaluatorInfo().rootDeclaration().type().isVoid() &&
+            !context.getEvaluatorInfo().rootDeclaration().equals(context.getEvaluatorInfo().variableInfo().declaration())) {
             analyser.getUsed().add(context.getEvaluatorInfo().rootDeclaration().name());
         }
 
@@ -137,38 +140,25 @@ public class MVELTranspiler {
 
         evalInfo.staticImports().stream().forEach(s -> unit.addImport(s, true, false));
 
+        ContextInfo<?> ctxInf = evalInfo.variableInfo();
+
         ClassOrInterfaceDeclaration classDeclaration = unit.addClass("GeneratorEvaluaor__");
         context.setClassDeclaration(classDeclaration);
         classDeclaration.addImplementedType(getClassOrInterfaceType(org.mvel3.Evaluator.class.getCanonicalName()) + "<" +
-                                            getClassOrInterfaceType(context.getEvaluatorInfo().variableInfo().type().getCanonicalGenericsName()) + ", " +
-                                            getClassOrInterfaceType(context.getEvaluatorInfo().rootDeclaration().type().getCanonicalGenericsName()) + ", " +
-                                            getClassOrInterfaceType(context.getEvaluatorInfo().outType().getCanonicalGenericsName()) + "> ");
+                                            getClassOrInterfaceType(ctxInf.declaration().type().getCanonicalGenericsName()) + ", " +
+                                            getClassOrInterfaceType(evalInfo.rootDeclaration().type().getCanonicalGenericsName()) + ", " +
+                                            getClassOrInterfaceType(evalInfo.outType().getCanonicalGenericsName()) + "> ");
 
         MethodDeclaration method = classDeclaration.addMethod("eval");
         method.setPublic(true);
 
-        org.mvel3.Type outType = context.getEvaluatorInfo().outType();
-        if ( !outType.isVoid()) {
-            method.setType(handleParserResult(context.getParser().parseType(outType.getCanonicalGenericsName())));
-        }
+        org.mvel3.Type outType = evalInfo.outType();
+        method.setType(handleParserResult(context.getParser().parseType(outType.getCanonicalGenericsName())));
 
-        method.addParameter(handleParserResult(context.getParser().parseType(evalInfo.variableInfo().type().getCanonicalGenericsName())), "context");
+        method.addParameter(handleParserResult(context.getParser().parseType(ctxInf.declaration().type().getCanonicalGenericsName())), ctxInf.declaration().name());
 
         NodeList<Statement> tempStmts = evalPre.evalPre(evalInfo, context, blockStmt.getStatements());
         blockStmt.setStatements(tempStmts);
-
-        // post to add in returns
-//
-//        if (statements.size() == 1 && statements.get(0) instanceof BlockStmt) {
-//            BlockStmt blockStmt = (BlockStmt) statements.get(0);
-//            tempStmts.stream().forEach( s -> blockStmt.addStatement(0, s));
-//
-//            rewrittenStmt = (BlockStmt) statements.get(0);
-//        } else {
-//            tempStmts.addAll(statements);
-//            NodeList<Statement> nodeList = NodeList.nodeList(tempStmts);
-//            rewrittenStmt = new BlockStmt(nodeList);
-//        }
 
         if (blockStmt.getStatements().size() == 1 && blockStmt.getStatement(0).isBlockStmt()) {
             method.setBody(blockStmt.getStatement(0).asBlockStmt());
@@ -185,9 +175,17 @@ public class MVELTranspiler {
         // Inject the "return" if one is needed and it's missing and it's a statement expression.
         // This will not check branchs of an if statement or for loop, those need explicit returns
         Statement stmt = method.getBody().get().getStatements().getLast().get();
-        if (!evalInfo.outType().isVoid() && stmt.isExpressionStmt() && method.getType() != null) {
-            ReturnStmt returnStmt = new ReturnStmt(stmt.asExpressionStmt().getExpression());
-            stmt.replace(returnStmt);
+        if (evalInfo.outType().isVoid()) {
+            ReturnStmt returnStmt = new ReturnStmt(new NullLiteralExpr());
+            method.getBody().get().getStatements().add(returnStmt);
+        } else if (stmt.isExpressionStmt() && method.getType() != null) {
+            if (stmt.asExpressionStmt().getExpression().isVariableDeclarationExpr()) {
+                ReturnStmt returnStmt = new ReturnStmt( new NameExpr(stmt.asExpressionStmt().getExpression().asVariableDeclarationExpr().getVariables().get(0).getNameAsString()));
+                method.getBody().get().getStatements().add(returnStmt);
+            } else {
+                ReturnStmt returnStmt = new ReturnStmt(stmt.asExpressionStmt().getExpression());
+                stmt.replace(returnStmt);
+            }
         }
 
         System.out.println(PrintUtil.printNode(unit));

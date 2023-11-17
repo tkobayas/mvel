@@ -1,8 +1,7 @@
 package org.mvel2.tests.core;
 
-import org.mvel2.EvaluatorBuilder;
-import org.mvel2.EvaluatorBuilder.ContextInfoBuilder;
-import org.mvel2.EvaluatorBuilder.EvaluatorInfo;
+import org.mvel3.EvaluatorBuilder;
+import org.mvel3.EvaluatorBuilder.ContextInfoBuilder;
 import org.mvel2.MVEL;
 import org.mvel2.ParserConfiguration;
 import org.mvel2.ParserContext;
@@ -10,11 +9,9 @@ import org.mvel2.compiler.ExecutableStatement;
 import org.mvel2.tests.core.res.Base;
 import org.mvel2.tests.core.res.Foo;
 import org.mvel3.Evaluator;
-import org.mvel3.TranspilerTest;
 import org.mvel3.Type;
 import org.mvel3.transpiler.context.Declaration;
 
-import java.math.BigDecimal;
 import java.util.*;
 import java.io.Serializable;
 
@@ -30,20 +27,29 @@ public class ControlFlowTests extends AbstractTest {
   }
 
   public void testAnd() {
-    assertEquals(true, test("c != null && foo.bar.name == \"dog\" && foo.bar.woof"));
+    assertEquals(true, test("var x = c != null && foo.bar.name == \"dog\" && foo.bar.woof; System.out.println(\"resultx \" + x); return x;"));
   }
 
   public void testAnd2() {
     assertEquals(true, test("c!=null&&foo.bar.name==\"dog\"&&foo.bar.woof"));
   }
 
-  public void testComplexAnd() {
-    assertEquals(true, test("(pi * hour) > 0 && foo.happy() == \"happyBar\""));
-    new BigDecimal(19.9d);
+  public void testComplexAndFail() {
+    try {
+      test("(pi * hour) > 0 && foo.happy() == \"happyBar\"");
+      fail("This sholud throw an exception. As it will coerced pi to Integer, but the String is a decimal");
+    } catch (Exception e) {
+      // swallow this succeeded
+    }
+  }
+
+  public void testComplexAndSucceed() {
+    // pi must be cast, as otherwise it coerced to Integer
+    assertEquals(true, test("(pi#double# * hour) > 0 && foo.happy() == \"happyBar\""));
   }
 
   public void testShortPathExpression() {
-    assertEquals(null, MVEL.eval("3 > 4 && foo.toUC('test'); foo.register", new Base(), createTestMap()));
+    assertEquals(null, MVEL.eval("3 > 4 && foo.toUC('test'); foo.register;", new Base(), createTestMap()));
   }
 
   public void testShortPathExpression2() {
@@ -66,8 +72,18 @@ public class ControlFlowTests extends AbstractTest {
     assertEquals(true, test("2 > 3 || 3 > 2"));
   }
 
-  public void testOrOperator3() {
-    assertEquals(true, test("pi > 5 || pi > 6 || pi > 3"));
+  public void testOrOperator3Fail() {
+    // The numeric type in the String pi is unknown, so it will coerce to the identified type on the right - which is integer.
+    try {
+      assertEquals(true, test("pi > 5 || pi > 6 || pi > 3"));
+      fail("This must fail and throw an exception");
+    } catch (Exception e) {
+
+    }
+  }
+
+  public void testOrOperator3Succeed() {
+    assertEquals(true, test("pi > 5.0 || pi > 6.0 || pi > 3.0"));
   }
 
   public void testShortPathExpression3() {
@@ -75,23 +91,23 @@ public class ControlFlowTests extends AbstractTest {
   }
 
   public void testMultiStatement() {
-    assertEquals(true, test("populate(); barfoo == 'sarah'"));
+    assertEquals(true, test("populate(); barfoo == \"sarah\";"));
   }
 
   public void testTernary() {
-    assertEquals("foobie", test("zero==0?'foobie':zero"));
+    assertEquals("foobie", test("zero==0? \"foobie\" : zero"));
   }
 
   public void testTernary2() {
-    assertEquals("blimpie", test("zero==1?'foobie':'blimpie'"));
+    assertEquals("blimpie", test("zero==1?\"foobie\":\"blimpie\""));
   }
 
   public void testTernary3() {
-    assertEquals("foobiebarbie", test("zero==1?'foobie':'foobie'+'barbie'"));
+    assertEquals("foobiebarbie", test("zero==1?\"foobie\":\"foobie\"+\"barbie\""));
   }
 
   public void testTernary5() {
-    assertEquals("skat!", test("isdef someWierdVar ? 'squid' : 'skat!';"));
+    assertEquals("skat!", test("isdef someWierdVar ? \"squid\" : \"skat!\";"));
   }
 
   public void testEmptyIf() {
@@ -129,7 +145,7 @@ public class ControlFlowTests extends AbstractTest {
   }
 
   public void testIfAndElseif() {
-    assertEquals(true, test("if (false) { return false; } else if(100 < 50) { return false; } else if (10 > 5) return true;"));
+    assertEquals(true, test("if (false) { return false; } else if(100 < 50) { return false; } else if (10 > 5) return true; return false;"));
   }
 
   public void testIfAndElseif2() {
@@ -142,11 +158,11 @@ public class ControlFlowTests extends AbstractTest {
 
 
   public void testIfAndElseIfCondensedGrammar() {
-    assertEquals("Foo244", test("if (false) return 'Bar'; else return 'Foo244';"));
+    assertEquals("Foo244", test("if (false) return \"Bar\"; else return \"Foo244\";"));
   }
 
   public void testTernary4() {
-    assertEquals("<test>", test("true ? '<test>' : '<poo>'"));
+    assertEquals("<test>", test("true ? \"<test>\" : \"<poo>\""));
   }
 
   public void testPrecedenceOrder1() {
@@ -157,15 +173,11 @@ public class ControlFlowTests extends AbstractTest {
   }
 
   public void testDoLoop() {
-    assertEquals(10, test("i = 0; do { i++ } while (i != 10); i"));
-  }
-
-  public void testDoLoop2() {
-    assertEquals(50, test("i=100;do{i--}until(i==50); i"));
+    assertEquals(10, test("var i = 0; do { i++; } while (i != 10); i;"));
   }
 
   public void testForLoop() {
-    String ex = "String str = ''; for(i=0;i<6;i++) { str += i }; str";
+    String ex = "String str = \"\"; for(int i=0;i<6;i++) { str += i; }; return str;";
 
     assertEquals("012345", MVEL.eval(ex, new HashMap()));
 
@@ -174,10 +186,6 @@ public class ControlFlowTests extends AbstractTest {
 
   public void testForLoop2() {
     assertEquals("012345", MVEL.eval("String str='';for(i=0;i<6;i++){str+=i};str", new HashMap()));
-  }
-
-  public void testUntilLoop() {
-    assertEquals("012345", test("String str = ''; int i = 0; until (i == 6) { str += i++; }; str"));
   }
 
   public void testQualifiedForLoop() {
@@ -243,20 +251,25 @@ public class ControlFlowTests extends AbstractTest {
   }
 
   public void testNestedMethodCall() {
-    List elements = new ArrayList();
+    List<TargetClass> elements = new ArrayList();
     elements.add(new TargetClass());
+
     Map variableMap = new HashMap();
-    variableMap.put("elements",
-        elements);
-    eval("results = new java.util.ArrayList(); foreach (element : elements) { " +
-        "if( {5} contains element.targetValue.intValue()) { results.add(element); } }; results",
-        variableMap);
+    variableMap.put("elements", elements);
+
+    List l = (List) eval("java.util.List<" + TargetClass.class.getCanonicalName() + "> results = new java.util.ArrayList(); for(var e : elements) { var element = (" +
+         TargetClass.class.getCanonicalName() + ") e;\n" +
+         "    java.util.List l = new java.util.ArrayList(); l.add(5);\n" +
+         "    if(l.contains(element.targetValue.intValue)) { results.add(element); } } return results;", null,
+         variableMap);
+    assertEquals(1, l.size());
+    assertSame(elements.get(0), l.get(0));
   }
 
   public void testStaticallyTypedItemInForEach() {
     assertEquals("1234",
-        test("java.lang.StringBuffer sbuf = new java.lang.StringBuffer(); foreach (int i : new int[] { 1,2,3,4 })" +
-            " { sbuf.append(i); }; sbuf.toString()"));
+        test("java.lang.StringBuffer sbuf = new java.lang.StringBuffer(); for (int i : new int[] { 1,2,3,4 })" +
+            " { sbuf.append(i); }; sbuf.toString();"));
   }
 
   public void testJIRA115() {
@@ -273,7 +286,7 @@ public class ControlFlowTests extends AbstractTest {
   }
 
   public void testStringWithTernaryIf() {
-    test("System.out.print(\"Hello : \" + (foo != null ? \"FOO!\" : \"NO FOO\") + \". Bye.\");");
+    test("String str = \"Hello : \" + (foo != null ? \"FOO!\" : \"NO FOO\") + \". Bye.\"; System.out.println(str); return str;");
   }
 
   private static Object testTernary(int i,
@@ -392,7 +405,7 @@ public class ControlFlowTests extends AbstractTest {
     builder.setImports(imports)
              .setVariableInfo(ContextInfoBuilder.create(Type.type(Map.class, "<String, Map<String, Date>>")))
              .setExpression("return new org.mvel2.tests.core.res.PDFFieldUtil().calculateAge(EV_VI_ANT1.GEBDAT) >= 25 ? \"Y\" : \"N\";")
-             .setRootDeclaration(Declaration.of("context", Type.type(Map.class, "<String, Map<String, Date>>")))
+             .setRootDeclaration(Type.type(Map.class, "<String, Map<String, Date>>"))
              .setOutType(Type.type(String.class));
 
 
@@ -413,20 +426,20 @@ public class ControlFlowTests extends AbstractTest {
         Boolean.FALSE);
 
     assertEquals("12345",
-        testCompiledSimple("EV_BER_BER_NR + ((EV_BER_BER_PRIV != empty && EV_BER_BER_PRIV == true) ? \"/PRIVAT\" : '')",
+        testCompiledSimple("return EV_BER_BER_NR + ((EV_BER_BER_PRIV != false && EV_BER_BER_PRIV == true) ? \"/PRIVAT\" : \"\");",
             map));
 
     map.put("EV_BER_BER_PRIV",
         Boolean.TRUE);
     assertEquals("12345/PRIVAT",
-        testCompiledSimple("EV_BER_BER_NR + ((EV_BER_BER_PRIV != empty && EV_BER_BER_PRIV == true) ? \"/PRIVAT\" : '')",
+        testCompiledSimple("return EV_BER_BER_NR + ((EV_BER_BER_PRIV != false && EV_BER_BER_PRIV == true) ? \"/PRIVAT\" : \"\");",
             map));
   }
 
 
   public void testCompactIfElse() {
     assertEquals("foo",
-        test("if (false) 'bar'; else 'foo';"));
+        test("if (false) return \"bar\"; else return \"foo\";"));
   }
 
   public void testForInitializerScope() {

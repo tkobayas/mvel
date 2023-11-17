@@ -1,9 +1,8 @@
 package org.mvel3;
 
 import org.junit.Test;
-import org.mvel2.EvaluatorBuilder;
-import org.mvel2.EvaluatorBuilder.ContextInfoBuilder;
-import org.mvel2.EvaluatorBuilder.EvaluatorInfo;
+import org.mvel3.EvaluatorBuilder.ContextInfoBuilder;
+import org.mvel3.EvaluatorBuilder.EvaluatorInfo;
 import org.mvel3.transpiler.context.Declaration;
 
 import java.util.ArrayList;
@@ -148,7 +147,7 @@ public class MVELCompilerTest {
 
     @Test
     public void testMapEvaluator() {
-        Map<String, Type> types = new HashMap<>();
+        Map<String, Type<?>> types = new HashMap<>();
         types.put("foo", Type.type(Foo.class));
         types.put("bar", Type.type(Bar.class));
 
@@ -168,7 +167,7 @@ public class MVELCompilerTest {
 
     @Test
     public void testMapEvaluatorWithGenerics() {
-        Map<String, Type> types = new HashMap<>();
+        Map<String, Type<?>> types = new HashMap<>();
         types.put("foos", Type.type(List.class, "<Foo>"));
 
         Foo foo1 = new Foo();
@@ -191,7 +190,7 @@ public class MVELCompilerTest {
 
     @Test
     public void testMapEvaluatorReturns() {
-        Map<String, Type> types = new HashMap<>();
+        Map<String, Type<?>> types = new HashMap<>();
         types.put("a", Type.type(int.class));
         types.put("b", Type.type(int.class));
         types.put("c", Type.type(int.class));
@@ -216,7 +215,7 @@ public class MVELCompilerTest {
     // @TODO this should assign back to the context (mdp)
     @Test
     public void testMapEvalutorInputs() {
-        Map<String, Type> types = new HashMap<>();
+        Map<String, Type<?>> types = new HashMap<>();
         types.put("a", Type.type(int.class));
         types.put("b", Type.type(int.class));
         //types.put("d", int.class);

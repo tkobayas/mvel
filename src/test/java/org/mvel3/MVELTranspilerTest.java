@@ -27,12 +27,9 @@ import java.util.Map;
 
 import static com.github.javaparser.Providers.provider;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.fail;
 
 public class MVELTranspilerTest implements TranspilerTest {
-
-    public List<String> getX() {
-        return null;
-    }
 
     @Test
     public void testAssignmentIncrement() {
@@ -371,7 +368,7 @@ public class MVELTranspilerTest implements TranspilerTest {
     public void testSetterCoerceToStringWithBigDecimal() {
         test(ctx -> ctx.addDeclaration("$p", Person.class),
              "$p.name = BigDecimal.valueOf(1);",
-             "$p.setName(BigDecimal.valueOf(1).toString());");
+             "$p.setName(java.util.Objects.toString(BigDecimal.valueOf(1), null));");
     }
 
     @Test
@@ -385,7 +382,7 @@ public class MVELTranspilerTest implements TranspilerTest {
     public void testSetterStringWithBigDecimalFromField() {
         test(ctx -> ctx.addDeclaration("$p", Person.class),
              "$p.name = $p.salary;",
-             "$p.setName($p.getSalary().toString());");
+             "$p.setName(java.util.Objects.toString($p.getSalary(), null));");
     }
 
     @Test
@@ -395,7 +392,7 @@ public class MVELTranspilerTest implements TranspilerTest {
                  ctx.addDeclaration("$m", BigDecimal.class);
              },
              "$p.name = $m;",
-             "$p.setName($m.toString());");
+             "$p.setName(java.util.Objects.toString($m, null));");
     }
 
     @Test
@@ -404,7 +401,7 @@ public class MVELTranspilerTest implements TranspilerTest {
                  ctx.addDeclaration("$p", Person.class);
              },
              "$p.name = 10000B;",
-             "$p.setName(new BigDecimal(\"10000\").toString());");
+             "$p.setName(java.util.Objects.toString(new BigDecimal(\"10000\"), null));");
     }
 
     @Test
@@ -413,7 +410,7 @@ public class MVELTranspilerTest implements TranspilerTest {
                  ctx.addDeclaration("$p", Person.class);
              },
              "$p.name = 10000I;",
-             "$p.setName(new BigInteger(\"10000\").toString());");
+             "$p.setName(java.util.Objects.toString(new BigInteger(\"10000\"), null));");
     }
 
     @Test
@@ -422,7 +419,7 @@ public class MVELTranspilerTest implements TranspilerTest {
                  ctx.addDeclaration("$p", Person.class);
              },
              "$p.name = BigDecimal.ZERO;",
-             "$p.setName(BigDecimal.ZERO.toString());");
+             "$p.setName(java.util.Objects.toString(BigDecimal.ZERO, null));");
     }
 
     @Test
@@ -618,7 +615,7 @@ public class MVELTranspilerTest implements TranspilerTest {
                  ctx.addDeclaration("$p", Person.class);
              },
              "$p.ageAsBigInteger = 10000I;",
-             "$p.setAgeAsBigInteger(new java.math.BigInteger(\"10000\"));");
+             "$p.setAgeAsBigInteger(new BigInteger(\"10000\"));");
     }
 
     @Test
@@ -776,7 +773,7 @@ public class MVELTranspilerTest implements TranspilerTest {
                  ctx.addDeclaration("map", Map.class, "<String, Integer>");
              },
              "$p.items[\"key4\"] = map[s];",
-             "$p.getItems().put(\"key4\", String.valueOf(map.get(s)));");
+             "$p.getItems().put(\"key4\", java.util.Objects.toString(map.get(s), null));");
     }
 
     @Test
@@ -788,7 +785,7 @@ public class MVELTranspilerTest implements TranspilerTest {
                  ctx.addDeclaration("map", Map.class, "<String, Integer>");
              },
              "$p.items[\"key4\"] += map[s];",
-             "$p.getItems().put(\"key4\", $p.getItems().get(\"key4\") + String.valueOf(map.get(s)));");
+             "$p.getItems().put(\"key4\", $p.getItems().get(\"key4\") + map.get(s));");
     }
 
     @Test
@@ -798,7 +795,7 @@ public class MVELTranspilerTest implements TranspilerTest {
                  ctx.addDeclaration("map", Map.class, "<String, Integer>");
              },
              "s = map[s];",
-             "context.put(\"s\", s = String.valueOf(map.get(s)));");
+             "context.put(\"s\", s = java.util.Objects.toString(map.get(s), null));");
     }
 
     @Test
@@ -1596,7 +1593,8 @@ public class MVELTranspilerTest implements TranspilerTest {
               "p.bigDecimalMap[\"bd\"] = 10B;"  +
               "p.bigDecimalMap[\"bd\"] += 20 + 20 + 40B;",
               "p.getBigDecimalMap().put(\"bd\", new BigDecimal(\"10\"));"  +
-              "p.getBigDecimalMap().put(\"bd\", p.getBigDecimalMap().get(\"bd\").add(BigDecimal.valueOf(20 + 20).add(new BigDecimal(\"40\"), java.math.MathContext.DECIMAL128), java.math.MathContext.DECIMAL128));");
+              "p.getBigDecimalMap().put(\"bd\", p.getBigDecimalMap().get(\"bd\").add(BigDecimal.valueOf(20 + 20).add(new BigDecimal(\"40\"), " +
+              "java.math.MathContext.DECIMAL128), java.math.MathContext.DECIMAL128));");
     }
 
     @Test
@@ -1605,7 +1603,8 @@ public class MVELTranspilerTest implements TranspilerTest {
               "p.publicArrayBigDec = new BigDecimal[] {10B};"  +
               "p.publicArrayBigDec[2] += 20 + 20 + 40B;",
               "p.publicArrayBigDec = new BigDecimal[] {new BigDecimal(\"10\")};"  +
-              "p.publicArrayBigDec[2] = p.publicArrayBigDec[2].add(BigDecimal.valueOf(20 + 20).add(new BigDecimal(\"40\"), java.math.MathContext.DECIMAL128), java.math.MathContext.DECIMAL128);");
+              "p.publicArrayBigDec[2] = p.publicArrayBigDec[2].add(BigDecimal.valueOf(20 + 20).add(new BigDecimal(\"40\"), java.math.MathContext.DECIMAL128), " +
+              "java.math.MathContext.DECIMAL128);");
     }
 
     @Test
@@ -1670,10 +1669,58 @@ public class MVELTranspilerTest implements TranspilerTest {
     }
 
     @Test
-    public void testBinaryExpressionAsArgu() {
+    public void testBinaryExpressionAsArgs() {
         test(ctx -> ctx.addDeclaration("p", Person.class),
              "int x = 5; String y = \"6\"; p.setAge(x * y);",
              "int x = 5; String y = \"6\"; p.setAge(x * Integer.parseInt(y));");
+    }
+
+    @Test
+    public void testVarArgCoercionNumbersThenVarArgStrings() {
+        test(ctx -> ctx.addDeclaration("p", Person.class),
+             "p.process2(\"1\", \"2\", \"3\", \"4\", \"5\");",
+             "p.process2(Integer.parseInt(\"1\"), Integer.parseInt(\"2\"), Integer.parseInt(\"3\"), \"4\", \"5\");");
+
+        test(ctx -> ctx.addDeclaration("p", Person.class),
+             "p.process2(\"1\", \"2\", \"3\", 4, 5);",
+             "p.process2(Integer.parseInt(\"1\"), Integer.parseInt(\"2\"), Integer.parseInt(\"3\"), String.valueOf(4), String.valueOf(5));");
+
+        test(ctx -> ctx.addDeclaration("p", Person.class),
+             "p.process2(\"1\", \"2\", \"3\");",
+             "p.process2(Integer.parseInt(\"1\"), Integer.parseInt(\"2\"), Integer.parseInt(\"3\"));");
+
+        try {
+            test(ctx -> ctx.addDeclaration("p", Person.class),
+                 "p.process2(\"1\", \"2\");",
+                 "p.process2(Integer.parseInt(\"1\"), Integer.parseInt(\"2\"));");
+            fail("There is no such method, so it should not attempt coercion and the test should fail");
+        } catch (AssertionError e) {
+            // swallow
+        }
+    }
+
+    @Test
+    public void testVarArgCoercionStringsThenVarArgNumbers() {
+        test(ctx -> ctx.addDeclaration("p", Person.class),
+             "p.process1(1, 2, 3, 4, 5);",
+             "p.process1(String.valueOf(1), String.valueOf(2), String.valueOf(3), 4, 5);");
+
+        test(ctx -> ctx.addDeclaration("p", Person.class),
+             "p.process1(1, 2, 3, \"4\", \"5\");",
+             "p.process1(String.valueOf(1), String.valueOf(2), String.valueOf(3), Integer.parseInt(\"4\"), Integer.parseInt(\"5\"));");
+
+        test(ctx -> ctx.addDeclaration("p", Person.class),
+             "p.process1(1, 2, 3);",
+             "p.process1(String.valueOf(1), String.valueOf(2), String.valueOf(3));");
+
+        try {
+            test(ctx -> ctx.addDeclaration("p", Person.class),
+                 "p.process1(1, 2);",
+                 "p.process1(String.valueOf(1), String.valueOf(2));");
+            fail("There is no such method, so it should not attempt coercion and the test should fail");
+        } catch (AssertionError e) {
+            // swallow
+        }
     }
 
 }

@@ -1,7 +1,5 @@
-package org.mvel2;
+package org.mvel3;
 
-import org.mvel3.ClassManager;
-import org.mvel3.Type;
 import org.mvel3.transpiler.context.Declaration;
 
 import java.util.ArrayList;
@@ -17,8 +15,9 @@ import java.util.stream.Collectors;
 public class EvaluatorBuilder<T, K, R> {
 
     private static final Declaration[] EMPTY_VARS  = new Declaration[0];
-    private static final String        ROOT_PREFIX = "__this";
-    private              ClassLoader   classLoader;
+
+    public static final String       CONTEXT_NAME = "__context";
+    private              ClassLoader classLoader;
 
     private        ClassManager  classManager;
 
@@ -28,12 +27,12 @@ public class EvaluatorBuilder<T, K, R> {
 
     private ContextInfoBuilder<T> variableInfo;
 
-    private static Declaration VOID_DECLARATION = Declaration.of(ROOT_PREFIX, Void.class);
+    public static Declaration VOID_DECLARATION = Declaration.of(CONTEXT_NAME, Void.class);
     private Declaration rootDeclaration = VOID_DECLARATION;
 
     private int rootVarIndex = 0;
 
-    private Type<R> outType = Type.type(Void.class); // default no return
+    private Type<R> outType;
 
     private String expression;
 
@@ -41,11 +40,12 @@ public class EvaluatorBuilder<T, K, R> {
 
     public static <T, K, R> EvaluatorBuilder<T, K, R> create() {
         EvaluatorBuilder builder = new EvaluatorBuilder<>();
+        builder.outType = Type.type(Void.class); // default no return
         return builder;
     }
 
     public static <T, K, R> EvaluatorBuilder create(EvaluatorBuilder<T, K, R> template) {
-        EvaluatorBuilder<T, K, R> builder = new EvaluatorBuilder<>();
+        EvaluatorBuilder<T, K, R> builder = create();
         builder.classLoader   = template.classLoader;
         builder.classManager  = template.classManager;
         builder.imports       = new HashSet<>(template.imports);
@@ -152,16 +152,19 @@ public class EvaluatorBuilder<T, K, R> {
     }
 
     public EvaluatorBuilder<T, K, R> setRootDeclaration(Class rootClass) {
-        setRootDeclaration(Declaration.of(ROOT_PREFIX, rootClass, ""));
+        setRootDeclaration(Declaration.of(CONTEXT_NAME, rootClass, ""));
         return this;
     }
 
     public EvaluatorBuilder<T, K, R> setRootDeclaration(Class rootClass, String rootGeneric) {
-        setRootDeclaration(Declaration.of(ROOT_PREFIX, rootClass, rootGeneric));
+        setRootDeclaration(Declaration.of(CONTEXT_NAME, rootClass, rootGeneric));
         return this;
     }
 
-
+    public EvaluatorBuilder<T, K, R> setRootDeclaration(Type type) {
+        setRootDeclaration(Declaration.of(CONTEXT_NAME, type));
+        return this;
+    }
 
     public String[] getOutVars() {
         return outVars;
@@ -181,12 +184,13 @@ public class EvaluatorBuilder<T, K, R> {
     }
 
     public EvaluatorInfo<T, K, R> build() {
+
         if ( rootDeclaration != VOID_DECLARATION) {
-            // There must be a matching var name.
-            if (variableInfo.vars.contains(rootDeclaration.name())) {
+            // There must be a matching var.
+            if (!variableInfo.vars.contains(rootDeclaration) && !variableInfo.declaration.equals(rootDeclaration)) {
                 String availableVars = String.join(",", variableInfo.vars.stream().map( d -> d.name()).collect(Collectors.toList()));
                 throw new IllegalStateException("Using a root configuration requires matching variable names. Current root name is '"
-                                                + rootDeclaration.name() + "' available names are: '" + availableVars + "'");
+                                                + rootDeclaration.name() + "' available names are: " + variableInfo.declaration + " and '" + availableVars + "'");
             }
         }
         EvaluatorInfo<T, K, R> info = new EvaluatorInfo<>();
@@ -266,10 +270,6 @@ public class EvaluatorBuilder<T, K, R> {
             }
 
             if (allVars == null) {
-//                Collections<Declaration> Collections.emptyList();
-//                if (rootType != null) {
-//
-//                }
                 allVars = Arrays.stream(variableInfo.vars).collect(Collectors.toMap(Declaration::name, Function.identity()));
             }
 
@@ -294,14 +294,14 @@ public class EvaluatorBuilder<T, K, R> {
     }
 
     public static class ContextInfo<T> {
-        private Type   type;
+        private Declaration   declaration;
 
         private Declaration[] vars;
 
         private String[] varNames;
 
-        public Type type() {
-            return type;
+        public Declaration declaration() {
+            return declaration;
         }
 
         public Declaration[] vars() {
@@ -317,7 +317,6 @@ public class EvaluatorBuilder<T, K, R> {
 
             return -1;
         }
-
         public String[] varNames() {
             if (varNames == null) {
                 varNames = Arrays.stream(vars).map(d -> d.name()).collect(Collectors.toList()).toArray(new String[0]);
@@ -325,10 +324,11 @@ public class EvaluatorBuilder<T, K, R> {
             return varNames;
         }
 
+
         @Override
         public String toString() {
             return "ContextInfo{" +
-                   "type=" + type +
+                   "declaration=" + declaration +
                    ", vars=" + Arrays.toString(vars) +
                    ", varNames=" + Arrays.toString(varNames) +
                    '}';
@@ -336,17 +336,22 @@ public class EvaluatorBuilder<T, K, R> {
     }
 
     public static class ContextInfoBuilder<T> {
-        private Type   type;
+        private Declaration<T>   declaration;
+
         private List<Declaration> vars = Collections.emptyList();
 
         public static <K> ContextInfoBuilder<K> create(Type<K> type) {
+            return create(new Declaration<>(CONTEXT_NAME, type));
+        }
+
+        public static <K> ContextInfoBuilder<K> create(Declaration<K> declaration) {
             ContextInfoBuilder<K> contextInfoBuilder = new ContextInfoBuilder<>();
-            contextInfoBuilder.type = type;
+            contextInfoBuilder.declaration = declaration;
             return contextInfoBuilder;
         }
 
-        public Type<T> getType() {
-            return type;
+        public Declaration<T> getDeclaration() {
+            return declaration;
         }
 
         public List<Declaration> getVars() {
@@ -374,7 +379,7 @@ public class EvaluatorBuilder<T, K, R> {
         public ContextInfo<T> build() {
             ContextInfo<T> values = new ContextInfo<>();
 
-            values.type    = type;
+            values.declaration    = declaration;
 
             values.vars = vars.toArray(new Declaration[0]);
 

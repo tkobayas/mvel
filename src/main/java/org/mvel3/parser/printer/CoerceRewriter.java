@@ -3,9 +3,11 @@ package org.mvel3.parser.printer;
 import com.github.javaparser.ParseResult;
 import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.expr.Expression;
+import com.github.javaparser.ast.expr.FieldAccessExpr;
 import com.github.javaparser.ast.expr.IntegerLiteralExpr;
 import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.ast.expr.NameExpr;
+import com.github.javaparser.ast.expr.NullLiteralExpr;
 import com.github.javaparser.ast.expr.ObjectCreationExpr;
 import com.github.javaparser.ast.expr.StringLiteralExpr;
 import com.github.javaparser.ast.type.ClassOrInterfaceType;
@@ -178,26 +180,30 @@ public class CoerceRewriter {
     }
 
     private void numberToStringCoercion() {
+        String string = String.class.getCanonicalName();
+
         Function<Expression, Expression> numberToString = e -> {
             MethodCallExpr methodCallExpr = new MethodCallExpr(new NameExpr("String"), "valueOf");
             methodCallExpr.addArgument(e.clone());
             return methodCallExpr;
         };
 
-        String string = String.class.getCanonicalName();
+        Function<Expression, Expression> objectToString = e -> {
+            MethodCallExpr methodCallExpr = new MethodCallExpr(new FieldAccessExpr(new FieldAccessExpr(new NameExpr("java"), "util"), "Objects"), "toString");
+            methodCallExpr.addArgument(e.clone());
+            methodCallExpr.addArgument(new NullLiteralExpr());
+            return methodCallExpr;
+        };
+
+
 
         Arrays.stream(FLOAT_PRIMITIVES).forEach(p -> {
             coercions.put(key(p.name().toUpperCase(), string), numberToString);
-            coercions.put(key("java.lang." + p.toBoxedType(), string), numberToString);
+            coercions.put(key("java.lang." + p.toBoxedType(), string), objectToString);
         });
 
         Arrays.stream(new String[] {BigDecimal.class.getCanonicalName(), BigInteger.class.getCanonicalName()}).forEach(p -> {
-            Function<Expression, Expression> toNumber = e -> {
-                MethodCallExpr methodCallExpr = new MethodCallExpr(e.clone(), "toString");
-                return methodCallExpr;
-            };
-
-            coercions.put(key(p, string), toNumber);
+            coercions.put(key(p, string), objectToString);
         });
 
     }
@@ -317,6 +323,10 @@ public class CoerceRewriter {
     public Expression coerce(ResolvedType sourceType, Expression sourceExpr, ResolvedType targetType) {
         Key key = key(describe(sourceType),
                       describe(targetType));
+        if (sourceType.isNull()) {
+            return null;
+        }
+
         Function<Expression, Expression> coerce = coercions.get(key);
 
         if (coerce != null) {

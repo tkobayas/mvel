@@ -97,7 +97,7 @@ public final class HalfBinaryExpr extends Expression {
     }
 
     @Override
-    public <A> void accept(VoidVisitor<A> v, A arg) {
+    public <A> void accept(VoidVisitor<A> v, A arg) {   
         ((DrlVoidVisitor<A>)v).visit(this, arg);
     }
 

@@ -3,31 +3,28 @@ package org.mvel2.tests.core;
 import junit.framework.AssertionFailedError;
 import junit.framework.TestCase;
 import org.mvel2.DataConversion;
+import org.mvel3.EvaluatorBuilder;
+import org.mvel3.EvaluatorBuilder.ContextInfoBuilder;
+import org.mvel3.EvaluatorBuilder.EvaluatorInfo;
 import org.mvel2.MVEL;
-import org.mvel2.ParserContext;
-import org.mvel2.compiler.CompiledExpression;
-import org.mvel2.compiler.ExpressionCompiler;
-import org.mvel2.debug.DebugTools;
-import org.mvel2.integration.impl.MapVariableResolverFactory;
+import org.mvel2.integration.VariableResolverFactory;
 import org.mvel2.optimizers.dynamic.DynamicOptimizer;
-import org.mvel2.tests.core.res.Base;
 import org.mvel2.tests.core.res.DerivedClass;
 import org.mvel2.tests.core.res.Foo;
 import org.mvel2.tests.core.res.TestInterface;
-import org.mvel2.util.StringAppender;
 import org.mvel3.Evaluator;
 import org.mvel3.Type;
+import org.mvel3.transpiler.MVELTranspiler;
+import org.mvel3.transpiler.context.Declaration;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
-import java.io.CharArrayWriter;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.io.PrintWriter;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -41,6 +38,7 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static java.lang.Integer.parseInt;
 import static java.lang.String.valueOf;
@@ -49,7 +47,6 @@ import static java.lang.System.getProperty;
 import static org.mvel2.MVEL.compileExpression;
 import static org.mvel2.MVEL.executeExpression;
 import static org.mvel2.debug.DebugTools.decompile;
-import static org.mvel2.optimizers.OptimizerFactory.setDefaultOptimizer;
 
 public abstract class AbstractTest extends TestCase {
 
@@ -72,8 +69,8 @@ public abstract class AbstractTest extends TestCase {
   protected static Map createTestMap() {
     Map map = new HashMap();
     map.put("foo", new Foo());
-    map.put("a", null);
-    map.put("b", null);
+    map.put("a", 5);
+    map.put("b", 10);
     map.put("c", "cat");
     map.put("BWAH", "");
 
@@ -268,12 +265,20 @@ public abstract class AbstractTest extends TestCase {
     return _test(ex);
   }
 
+  protected static Object runSingleTest(final String ex, Set<String> imports) {
+    return _test(ex, imports);
+  }
+
   protected static Object testCompiledSimple(String ex) {
     return MVEL.executeExpression(MVEL.compileExpression(ex));
   }
 
   protected static Object testCompiledSimple(String ex, Map map) {
-    return org.mvel3.MVEL.get().executeExpression(ex, Collections.emptySet(), (Map<String, Object>) map);
+    return new org.mvel3.MVEL().executeExpression(ex, Collections.emptySet(), (Map<String, Object>) map);
+  }
+
+  protected static Object testCompiledSimpleVoid(String ex, Map map) {
+    return new org.mvel3.MVEL().executeExpression(ex, Collections.emptySet(), (Map<String, Object>) map, null);
   }
 
   protected static Object testCompiledSimple(String ex, Object base, Map map) {
@@ -291,11 +296,17 @@ public abstract class AbstractTest extends TestCase {
   }
 
   protected static Object _test(String ex) {
+    return _test(ex, Collections.<String>emptySet());
+  }
+
+  protected static Object _test(String ex, Set<String> imports) {
     //ex = maybeWrap(ex);
     Map<String, Object>                          vars     = createTestMap();
-    Map<String, Type>                            types    = org.mvel3.MVEL.getTypeMap(vars);
-    Evaluator<Map<String, Object>, Void, Object> compiled =  org.mvel3.MVEL.get().compileMapEvaluator(ex, Object.class, new HashSet<>(), types);
-    return compiled.eval(createTestMap());
+    Map<String, Type<?>>                            types    = org.mvel3.MVEL.getTypeMap(vars);
+    Evaluator<Map<String, Object>, Void, Object> compiled = new org.mvel3.MVEL().compileMapEvaluator(ex, Object.class, imports, types);
+    Object result = compiled.eval(createTestMap());
+    System.out.println("result: " + result);
+    return result;
 
     //createTestMap()
 
@@ -493,6 +504,41 @@ public abstract class AbstractTest extends TestCase {
 //    return fourth;
   }
 
+  public Object eval(String expression, Object rootObject, Map<String, Object> vars) {
+    return eval(expression, rootObject, vars, new HashSet<>());
+  }
+
+  public Object eval(String expression, Object rootObject, Map<String, Object> vars, Set<String> imports) {
+
+    if (rootObject != null) {
+      vars.put("__this", rootObject);
+    }
+
+    EvaluatorBuilder<Map<String, Object>, Object, Object> builder = EvaluatorBuilder
+            .create()
+            .setImports(imports)
+            .setExpression(expression)
+            .setVariableInfo(ContextInfoBuilder.create(Type.type(Map.class))
+                                               .setVars(Declaration.from(org.mvel3.MVEL.getTypeMap(vars))))
+            .setOutType(Type.type(Object.class));
+
+    if (rootObject != null) {
+      builder.setRootDeclaration(Declaration.of("__this", Type.type(rootObject.getClass())));
+    }
+
+    EvaluatorInfo<Map<String, Object>, Object, Object> evalInfo = builder.build();
+
+    return org.mvel3.MVEL.get().compile(evalInfo).eval(vars);
+  }
+
+  public Object eval(String expression, Map<String, String> map, VariableResolverFactory factory) {
+    return true;
+  }
+
+  public Object eval(String expr, Object rootObject) {
+    return eval(expr, rootObject, new HashMap<>());
+  }
+
   protected static Serializable serializationTest(Serializable s) throws Exception {
     File file = new File("./mvel_ser_test" + currentTimeMillis() + Math.round(Math.random() * 1000) + ".tmp");
     InputStream inputStream = null;
@@ -533,7 +579,7 @@ public abstract class AbstractTest extends TestCase {
       List l = new ArrayList();
       l.add(object1);
       l.add(string);
-      l.add(new Integer(integer));
+      l.add(Integer.valueOf(integer));
       l.add(map);
       l.add(list);
       return l;

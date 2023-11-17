@@ -173,4 +173,8 @@ public class Person {
     public Map<String, BigDecimal> getBigDecimalMap() {
         return null;
     }
+
+    public void process1(String a, String b, String c, int... nums) {}
+
+    public void process2(int a, int b, int c, String... str) {}
 }

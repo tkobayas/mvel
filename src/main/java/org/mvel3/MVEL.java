@@ -19,9 +19,8 @@
 
 package org.mvel3;
 
-import org.mvel2.EvaluatorBuilder;
-import org.mvel2.EvaluatorBuilder.ContextInfoBuilder;
-import org.mvel2.EvaluatorBuilder.EvaluatorInfo;
+import org.mvel3.EvaluatorBuilder.ContextInfoBuilder;
+import org.mvel3.EvaluatorBuilder.EvaluatorInfo;
 import org.mvel3.transpiler.context.Declaration;
 
 import java.util.HashMap;
@@ -47,9 +46,13 @@ public class MVEL {
         return instance;
     }
 
+    public MVEL() {
+        this.clsManager = clsManager;
+    }
+
     ClassManager clsManager = new ClassManager();
 
-    public <T extends Map, Void, R> Evaluator<T, Void, R> compileMapEvaluator(final String content, final Class<R> outClass, final Set<String> imports, final Map<String, Type> types) {
+    public <T extends Map, Void, R> Evaluator<T, Void, R> compileMapEvaluator(final String content, final Class<R> outClass, final Set<String> imports, final Map<String, Type<?>> types) {
         MVELCompiler MVELCompiler = new MVELCompiler();
         EvaluatorBuilder<T, Void, R> eval = new EvaluatorBuilder<>();
         eval.setClassManager(clsManager).setClassLoader(ClassLoader.getSystemClassLoader())
@@ -105,15 +108,13 @@ public class MVEL {
     }
 
     public <R> R executeExpression(final String expr, Set<String> imports, final Map<String, Object> vars,  Class<R> outClass) {
-        return executeExpression(expr, imports, new HashMap<>(), Type.type(outClass), vars);
+        return executeExpression(expr, imports, getTypeMap(vars), outClass != null ? Type.type(outClass) : null, vars);
     }
 
     public <R> R executeExpression(final String expr, Set<String> imports,
-                                    final Map<String, Type<Object>> types,
+                                    final Map<String, Type<?>> types,
                                     Type<R> outType,
                                     final Map<String, Object> vars) {
-
-
         for (Map.Entry<String, Object> o : vars.entrySet()) {
             if ( types.keySet().contains(o.getKey())) {
                 Class type = o.getValue() == null ? Object.class : o.getValue().getClass();
@@ -122,24 +123,27 @@ public class MVEL {
         }
 
         MVELCompiler MVELCompiler = new MVELCompiler();
-        EvaluatorBuilder<Map<String, Object>, Void, R> eval = new EvaluatorBuilder<>();
+        EvaluatorBuilder<Map<String, Object>, Void, R> eval = EvaluatorBuilder.create();
 
         eval.setClassManager(clsManager).setClassLoader(ClassLoader.getSystemClassLoader())
             .setExpression(expr)
             .setImports(imports)
             .setVariableInfo(ContextInfoBuilder.create(Type.type(Map.class, "<String, Object>"))
-                                               .setVars(types.values().toArray(new Declaration[0])))
-            .setOutType(outType);
+                                               .setVars(Declaration.from(types)));
+
+        if (outType!=null) {
+            eval.setOutType(outType);
+        }
 
         Evaluator<Map<String, Object>, Void, R> evaluator = MVELCompiler.compile(eval.build());
 
         return evaluator.eval(vars);
     }
 
-    public static Map<String, Type> getTypeMap(Map<String, Object> vars) {
-        Map<String, Type> types = new HashMap<>();
+    public static Map<String, Type<?>> getTypeMap(Map<String, ?> vars) {
+        Map<String, Type<?>> types = new HashMap<>();
 
-        for (Map.Entry<String, Object> o : vars.entrySet()) {
+        for (Map.Entry<String, ?> o : vars.entrySet()) {
             types.put(o.getKey(), Type.type(o.getValue() != null ? o.getValue().getClass() : null));
         }
 

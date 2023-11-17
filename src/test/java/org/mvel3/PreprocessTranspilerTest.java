@@ -16,7 +16,6 @@
 
 package org.mvel3;
 
-import org.mvel2.EvaluatorBuilder;
 import org.mvel3.transpiler.TranspiledBlockResult;
 import org.mvel3.transpiler.PreprocessTranspiler;
 import org.mvel3.transpiler.TranspiledResult;

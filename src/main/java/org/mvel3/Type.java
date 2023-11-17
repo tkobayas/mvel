@@ -1,12 +1,12 @@
 package org.mvel3;
 
 public class Type<T> {
-    private final Class clazz;
+    private final Class<T> clazz;
 
     private final String generics;
 
     public Type(Class clazz, String generics) {
-        this.clazz = clazz;
+        this.clazz = (Class<T>) clazz;
         this.generics = generics != null ? generics : "";
     }
 
@@ -18,7 +18,7 @@ public class Type<T> {
         return new Type(clazz, generics);
     }
 
-    public Class getClazz() {
+    public Class<T> getClazz() {
         return clazz;
     }
 
@@ -43,7 +43,7 @@ public class Type<T> {
             return false;
         }
 
-        Type type = (Type) o;
+        Type<T> type = (Type<T>) o;
 
         if (!clazz.equals(type.clazz)) {
             return false;

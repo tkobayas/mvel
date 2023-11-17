@@ -22,7 +22,7 @@ import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.resolution.TypeSolver;
 import com.github.javaparser.symbolsolver.JavaSymbolSolver;
 import com.github.javaparser.symbolsolver.javaparsermodel.JavaParserFacade;
-import org.mvel2.EvaluatorBuilder.EvaluatorInfo;
+import org.mvel3.EvaluatorBuilder.EvaluatorInfo;
 import org.mvel3.parser.MvelParser;
 import org.mvel3.parser.printer.CoerceRewriter;
 import org.mvel3.parser.printer.OverloadRewriter;
