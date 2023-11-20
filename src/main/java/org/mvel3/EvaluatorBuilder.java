@@ -142,22 +142,18 @@ public class EvaluatorBuilder<T, K, R> {
         return this;
     }
 
+    /**
+     * Sets a root Declaration, and will inject the declaration name into the
+     * variable info, if the name does not match the context name and the context
+     * type is a Map.
+     * @return
+     */
     public Declaration<K> getRootDeclaration() {
         return rootDeclaration;
     }
 
     public EvaluatorBuilder<T, K, R> setRootDeclaration(Declaration<K> rootDeclaration) {
         this.rootDeclaration = rootDeclaration;
-        return this;
-    }
-
-    public EvaluatorBuilder<T, K, R> setRootDeclaration(Class rootClass) {
-        setRootDeclaration(Declaration.of(CONTEXT_NAME, rootClass, ""));
-        return this;
-    }
-
-    public EvaluatorBuilder<T, K, R> setRootDeclaration(Class rootClass, String rootGeneric) {
-        setRootDeclaration(Declaration.of(CONTEXT_NAME, rootClass, rootGeneric));
         return this;
     }
 
@@ -184,21 +180,31 @@ public class EvaluatorBuilder<T, K, R> {
     }
 
     public EvaluatorInfo<T, K, R> build() {
+        // Either the root and context vars are the same, and no context variables.
+        // Or the root variable must be a
 
-        if ( rootDeclaration != VOID_DECLARATION) {
-            // There must be a matching var.
-            if (!variableInfo.vars.contains(rootDeclaration) && !variableInfo.declaration.equals(rootDeclaration)) {
-                String availableVars = String.join(",", variableInfo.vars.stream().map( d -> d.name()).collect(Collectors.toList()));
-                throw new IllegalStateException("Using a root configuration requires matching variable names. Current root name is '"
-                                                + rootDeclaration.name() + "' available names are: " + variableInfo.declaration + " and '" + availableVars + "'");
-            }
+        if (rootDeclaration == VOID_DECLARATION && variableInfo == null) {
+            throw new IllegalStateException("Both root and context declarations cannot be empty");
         }
+
+        if ( rootDeclaration != VOID_DECLARATION &&
+             (variableInfo != null && !rootDeclaration.equals(variableInfo.declaration)) &&
+             !variableInfo.vars.contains(rootDeclaration)) {
+            throw new IllegalStateException("Using a root declaration requires matching context declaration with no additional variables. " +
+                                            "Or the context must have  matching variable name' root "
+                                            + rootDeclaration + " context " + variableInfo);
+        }
+
         EvaluatorInfo<T, K, R> info = new EvaluatorInfo<>();
         info.classLoader   = classLoader;
         info.classManager  = classManager;
         info.imports       = new HashSet<>(imports);
         info.staticImports = new HashSet<>(staticImports);
-        info.variableInfo  = variableInfo == null ? null : variableInfo.build();
+        if (variableInfo == null) {
+            // root cannot be null, so set to same
+            variableInfo =  ContextInfoBuilder.create(rootDeclaration);
+        }
+        info.variableInfo = variableInfo.build();
         info.rootDeclaration = rootDeclaration;
         info.rootVarIndex  = rootVarIndex;
         info.expression    = expression;

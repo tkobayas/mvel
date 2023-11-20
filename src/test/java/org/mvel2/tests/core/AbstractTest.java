@@ -509,26 +509,39 @@ public abstract class AbstractTest extends TestCase {
   }
 
   public Object eval(String expression, Object rootObject, Map<String, Object> vars, Set<String> imports) {
-
-    if (rootObject != null) {
-      vars.put("__this", rootObject);
+    if (imports == null) {
+      imports = new HashSet<>();
     }
 
-    EvaluatorBuilder<Map<String, Object>, Object, Object> builder = EvaluatorBuilder
-            .create()
-            .setImports(imports)
-            .setExpression(expression)
-            .setVariableInfo(ContextInfoBuilder.create(Type.type(Map.class))
-                                               .setVars(Declaration.from(org.mvel3.MVEL.getTypeMap(vars))))
-            .setOutType(Type.type(Object.class));
+    EvaluatorBuilder<Object, Object, Object> builder = EvaluatorBuilder
+                                                                            .create()
+                                                                            .setImports(imports)
+                                                                            .setExpression(expression)
+                                                                            .setOutType(Type.type(Object.class));
 
-    if (rootObject != null) {
-      builder.setRootDeclaration(Declaration.of("__this", Type.type(rootObject.getClass())));
+    if (vars != null) {
+      // @TODO why do these need to be separared, how can I fix the generics (mdp)
+      ContextInfoBuilder<Object> contextBuilder = ContextInfoBuilder.create(Type.type(Map.class));
+      contextBuilder.setVars(Declaration.from(org.mvel3.MVEL.getTypeMap(vars)));
+      builder.setVariableInfo(contextBuilder);
     }
 
-    EvaluatorInfo<Map<String, Object>, Object, Object> evalInfo = builder.build();
+    Object evalContext = vars; // If vars are passsed us it, else default to the root object
+    if (rootObject != null) {
+      builder.setRootDeclaration(Type.type(rootObject.getClass()));
 
-    return org.mvel3.MVEL.get().compile(evalInfo).eval(vars);
+      if (vars != null) {
+        vars.put("__this", rootObject); // there are vars, so the root object must map to a property of the context
+      } else {
+        ContextInfoBuilder<Object> contextBuilder = ContextInfoBuilder.create(Type.type(rootObject.getClass()));
+        builder.setVariableInfo(contextBuilder);
+        evalContext = rootObject; // no vars, so default to the root object
+      }
+    }
+
+    EvaluatorInfo<Object, Object, Object> evalInfo = builder.build();
+
+    return org.mvel3.MVEL.get().compile(evalInfo).eval(evalContext);
   }
 
   public Object eval(String expression, Map<String, String> map, VariableResolverFactory factory) {
@@ -537,6 +550,10 @@ public abstract class AbstractTest extends TestCase {
 
   public Object eval(String expr, Object rootObject) {
     return eval(expr, rootObject, new HashMap<>());
+  }
+
+  public Object eval(String expr) {
+    return eval(expr, null, new HashMap<>());
   }
 
   protected static Serializable serializationTest(Serializable s) throws Exception {

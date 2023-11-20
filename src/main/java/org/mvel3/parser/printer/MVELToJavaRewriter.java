@@ -19,7 +19,6 @@ import com.github.javaparser.ast.expr.ArrayAccessExpr;
 import com.github.javaparser.ast.expr.IntegerLiteralExpr;
 import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.ast.expr.NameExpr;
-import com.github.javaparser.ast.expr.NullLiteralExpr;
 import com.github.javaparser.ast.expr.SimpleName;
 import com.github.javaparser.ast.expr.StringLiteralExpr;
 import com.github.javaparser.ast.expr.TextBlockLiteralExpr;
@@ -124,10 +123,20 @@ public class MVELToJavaRewriter {
         mathContext = handleParserResult(context.getParser().parseExpression("java.math.MathContext.DECIMAL128"));
 
         if (!context.getEvaluatorInfo().rootDeclaration().type().isVoid()) {
-            rootObjectType = solver.classToResolvedType(context.getEvaluatorInfo().rootDeclaration().type().getClazz());
+            Class cls = context.getEvaluatorInfo().rootDeclaration().type().getClazz();
+            try {
+                rootObjectType = solver.classToResolvedType(cls);
+            } catch (Exception e) {
+                throw new IllegalStateException("The root '" + cls + "' object must be of a Pojo Class", e);
+            }
         }
 
-        contextObjectType = solver.classToResolvedType(context.getEvaluatorInfo().variableInfo().declaration().type().getClazz());
+        Class cls = context.getEvaluatorInfo().variableInfo().declaration().type().getClazz();
+        try {
+            contextObjectType = solver.classToResolvedType(cls);
+        } catch (Exception e) {
+            throw new IllegalStateException("The context '" + cls + "' object must be of a Pojo Class", e);
+        }
 
         nodeMap = new IdentityHashMap<>();
 
@@ -203,6 +212,7 @@ public class MVELToJavaRewriter {
                 // This attempts to only rewrite methods that are not called against a variable
                 if (!methodCallExpr.hasScope() && !methodCallExpr.getNameAsString().contains(".")) {
                     node = rewriteMethodToContextObject(methodCallExpr);
+                    methodCall = (MethodCallExpr) node;
                 }
 
                 if (methodCall.getScope().isPresent()) {
@@ -273,7 +283,7 @@ public class MVELToJavaRewriter {
                 rewriteArrayInitializer(elementType, expr.asArrayInitializerExpr());
             } else {
                 ResolvedType exprType = expr.calculateResolvedType();
-                if (!isAssignableBy(exprType, elementType)) {
+                if (!isAssignableBy(elementType, exprType)) {
                     Expression coerced = coercer.coerce(exprType, expr, elementType);
                     if ( coerced != null) {
                         initExpr.getValues().set(i, coerced);
@@ -392,7 +402,7 @@ public class MVELToJavaRewriter {
 
         int coercionCount = 0;
         for(int i = startIndex; i < endIndex; i++) {
-            if (!isAssignableBy(argTypes.get(i), paramType)) {
+            if (!isAssignableBy(paramType, argTypes.get(i))) {
                 // else try coercion
                 Expression result = coercer.coerce(argTypes.get(i), methodCall.getArguments().get(i), paramType);
                 if (result == null) {
@@ -430,7 +440,7 @@ public class MVELToJavaRewriter {
         ResolvedType targetType = context.getFacade().convertToUsage(node.getType());
 
         ResolvedType sourceType = node.getExpression().calculateResolvedType();
-        if (isAssignableBy(targetType, sourceType)) {
+        if (isAssignableBy(sourceType, targetType)) { // in casting the source and target are reversed
             // have to put into an () enclosure, as this was not in the original grammar due to #....#
             EnclosedExpr enclosure = new EnclosedExpr();
             node.replace(enclosure);
@@ -535,8 +545,8 @@ public class MVELToJavaRewriter {
             ResolvedType array = arrayAccessor.getName().calculateResolvedType();
 
 
-            boolean isMap = isAssignableBy(array, mapType);
-            boolean isList = isAssignableBy(array, listType);
+            boolean isMap = isAssignableBy(mapType, array);
+            boolean isList = isAssignableBy(listType, array);
             MethodUsage putSet = getPutSet(isMap, isList);
 
             Expression value = assignExpr.getValue();
@@ -671,7 +681,7 @@ public class MVELToJavaRewriter {
         }
 
         // Check this is either String assignment or numeric (which doesn't require operator overloading).
-        if ( setter == null && (isAssignableBy(targetType, stringType) ||
+        if ( setter == null && (isAssignableBy(stringType, targetType) ||
              valueType.isNumericType() && targetType.isNumericType())) {
 
             // If the value was coerced, then set the coerced version.
@@ -684,7 +694,7 @@ public class MVELToJavaRewriter {
         }
 
         if (assignExpr.getOperator() != Operator.ASSIGN) {
-            if (!isAssignableBy(valueType, targetType)){
+            if (!isAssignableBy(targetType, valueType)){
                 // No coercion possible, but types not assignable, so this cannot progress.
                 throw new RuntimeException("Invalid statement with compount operator '" + assignExpr.getOperator() + "'. " + value + " cannot be coerced or assigned to " + target);
             }
@@ -854,8 +864,8 @@ public class MVELToJavaRewriter {
         Expression right = binExprTypes.right;
         ResolvedType rightType = binExprTypes.rightType;
 
-        boolean isLeftTypeString = isAssignableBy(leftType, stringType);
-        boolean isRightTypeString = isAssignableBy(rightType, stringType);
+        boolean isLeftTypeString = isAssignableBy(stringType, leftType);
+        boolean isRightTypeString = isAssignableBy(stringType, rightType);
 
         // This handles a special case for + and Strings in binary expressions
         if (binExprTypes.getBinaryExpr().getOperator() == BinaryExpr.Operator.PLUS &&
@@ -884,18 +894,21 @@ public class MVELToJavaRewriter {
     }
 
     boolean isBigNumber(ResolvedType type) {
-        if (isAssignableBy(type, bigDecimalType)) {
+        if (isAssignableBy(bigDecimalType, type)) {
             return true;
         }
 
-        if (isAssignableBy(type, bigIntegerType)) {
+        if (isAssignableBy(bigIntegerType, type)) {
             return true;
         }
 
         return false;
     }
 
-    public static boolean isAssignableBy(ResolvedType source, ResolvedType target) {
+    public static boolean isAssignableBy(ResolvedType target, ResolvedType source) {
+        if (target.isNumericType() && source.isNumericType()) {
+            return true; // leave javac to pick up widenning issues
+        }
         if (!source.isNull() && target.isAssignableBy(source)) {
             return true;
         }
@@ -934,7 +947,7 @@ public class MVELToJavaRewriter {
         Expression arg = null;
         try {
             MethodUsage getter = null;
-            if (isAssignableBy(type, mapType)) {
+            if (isAssignableBy(mapType, type)) {
                 getter = mapGetMethod;
                 arg    = new StringLiteralExpr(n.getNameAsString());
             } else {

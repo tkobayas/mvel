@@ -1923,12 +1923,9 @@ public class CoreConfidenceTests extends AbstractTest {
   public void testSetExpressions2() {
     Foo foo = new Foo();
     Collection col = new ArrayList();
-    final Serializable fooExpr = compileSetExpression("collectionTest");
-    executeSetExpression(fooExpr,
-        foo,
-        col);
-    assertEquals(col,
-        foo.getCollectionTest());
+    //final Serializable fooExpr = compileSetExpression("collectionTest");
+    executeSetExpression("collectionTest", foo, col);
+    assertEquals(col, foo.getCollectionTest());
   }
 
   public class Fruit {
@@ -1938,29 +1935,32 @@ public class CoreConfidenceTests extends AbstractTest {
   }
 
   public void testInnerClassReference() {
+    Set<String> imports = new HashSet<>();
+    imports.add(CoreConfidenceTests.class.getCanonicalName());
+
     assertEquals(Fruit.Apple.class,
-        test("import " + CoreConfidenceTests.class.getName() + "; CoreConfidenceTests.Fruit.Apple"));
+        eval("CoreConfidenceTests.Fruit.Apple.class;", null, null, imports));
   }
 
   public void testEdson() {
     assertEquals("foo",
-        test("list = new java.util.ArrayList(); list.add(new String('foo')); list[0]"));
+        test("var list = new java.util.ArrayList(); list.add(new String(\"foo\")); list[0];"));
   }
 
   public void testEnumSupport() {
     MyInterface myInterface = new MyClass();
-    myInterface.setType(MyInterface.MY_ENUM.TWO,
-        true);
-    boolean isType = MVEL.eval("isType(org.mvel2.tests.core.res.MyInterface$MY_ENUM.ONE)",
-        myInterface,
-        Boolean.class);
-    System.out.println(isType);
+    myInterface.setType(MyInterface.MY_ENUM.TWO, true);
+    assertFalse((boolean) eval("isType(org.mvel2.tests.core.res.MyInterface.MY_ENUM.ONE)", myInterface));
+    assertTrue((boolean) eval("isType(org.mvel2.tests.core.res.MyInterface.MY_ENUM.TWO)", myInterface));
 
+    myInterface.setType(MyInterface.MY_ENUM.TWO, false);
+    myInterface.setType(MyInterface.MY_ENUM.ONE, true);
+    assertTrue((boolean) eval("isType(org.mvel2.tests.core.res.MyInterface.MY_ENUM.ONE)", myInterface));
+    assertFalse((boolean) eval("isType(org.mvel2.tests.core.res.MyInterface.MY_ENUM.TWO)", myInterface));
   }
 
   public void testOperatorPrecedenceOrder() {
-    Serializable compiled =
-        compileExpression("bean1.successful && bean2.failed || bean1.failed && bean2.successful");
+    String expression = "bean1.successful && bean2.failed || bean1.failed && bean2.successful";
     Map context = new HashMap();
 
     BeanB bean1 = new BeanB(true);
@@ -1971,14 +1971,8 @@ public class CoreConfidenceTests extends AbstractTest {
     context.put("bean2",
         bean2);
 
-    System.out.println("interpreted: "
-        + MVEL.eval("bean1.successful && bean2.failed || bean1.failed && bean2.successful",
-        context));
-
     assertEquals(bean1.isSuccessful() && bean2.isFailed() || bean1.isFailed() && bean2.isSuccessful(),
-        (boolean) executeExpression(compiled,
-            context,
-            Boolean.class));
+                 (boolean) eval(expression, null, context));
   }
 
   public static class BeanB {
@@ -1998,13 +1992,11 @@ public class CoreConfidenceTests extends AbstractTest {
   }
 
   public void testJIRA139() {
-    ParserContext ctx = new ParserContext();
-    ctx.addImport("ReflectionUtil",
-        ReflectionUtil.class);
-    Serializable s = compileExpression("ReflectionUtil.getGetter('foo')",
-        ctx);
+    Set<String> imports = new HashSet<>();
+    imports.add(ReflectionUtil.class.getCanonicalName());
+
     assertEquals(ReflectionUtil.getGetter("foo"),
-        executeExpression(s));
+        eval("ReflectionUtil.getGetter(\"foo\")", null, null, imports));
   }
 
   public void testJIRA140() {

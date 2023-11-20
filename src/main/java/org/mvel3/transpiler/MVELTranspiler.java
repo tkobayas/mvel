@@ -103,7 +103,7 @@ public class MVELTranspiler {
 
     public TranspiledBlockResult transpileBlock(String content, EvalPre evalPre) {
         BlockStmt blockStmt;
-
+        System.out.println(content);
         try {
             // wrap as expression/block may or may not have {}, then unwrap latter.
             blockStmt = handleParserResult(context.getParser().parseBlock("{" + content + "}"));
@@ -118,6 +118,8 @@ public class MVELTranspiler {
                 blockStmt = new  BlockStmt(NodeList.nodeList(returnStmt));
             }
         }
+
+
 
         VariableAnalyser analyser = new VariableAnalyser(context.getEvaluatorInfo().allVars().keySet());
         blockStmt.accept(analyser, null);
@@ -144,10 +146,14 @@ public class MVELTranspiler {
 
         ClassOrInterfaceDeclaration classDeclaration = unit.addClass("GeneratorEvaluaor__");
         context.setClassDeclaration(classDeclaration);
-        classDeclaration.addImplementedType(getClassOrInterfaceType(org.mvel3.Evaluator.class.getCanonicalName()) + "<" +
-                                            getClassOrInterfaceType(ctxInf.declaration().type().getCanonicalGenericsName()) + ", " +
-                                            getClassOrInterfaceType(evalInfo.rootDeclaration().type().getCanonicalGenericsName()) + ", " +
-                                            getClassOrInterfaceType(evalInfo.outType().getCanonicalGenericsName()) + "> ");
+
+
+        String implementedType = org.mvel3.Evaluator.class.getCanonicalName() + "<" +
+                                 ctxInf.declaration().type().getCanonicalGenericsName() + ", " +
+                                 evalInfo.rootDeclaration().type().getCanonicalGenericsName() + ", " +
+                                 evalInfo.outType().getCanonicalGenericsName() + "> ";
+        System.out.println(implementedType);
+        classDeclaration.addImplementedType(implementedType);
 
         MethodDeclaration method = classDeclaration.addMethod("eval");
         method.setPublic(true);
@@ -191,37 +197,5 @@ public class MVELTranspiler {
         System.out.println(PrintUtil.printNode(unit));
 
         return new TranspiledBlockResult(unit, classDeclaration, method, context);
-    }
-
-    public ClassOrInterfaceType getClassOrInterfaceType(String fqn) {
-        switch (fqn) {
-            case "boolean":
-                fqn = Boolean.class.getCanonicalName();
-                break;
-            case "char":
-                fqn = Character.class.getCanonicalName();
-                break;
-            case "short":
-                fqn = Short.class.getCanonicalName();
-                break;
-            case "int":
-                fqn = Integer.class.getCanonicalName();
-                break;
-            case "long":
-                fqn = Long.class.getCanonicalName();
-                break;
-            case "float":
-                fqn = Float.class.getCanonicalName();
-                break;
-            case "double":
-                fqn = Double.class.getCanonicalName();
-                break;
-        }
-        ClassOrInterfaceType clsType = handleParserResult(context.getParser().parseClassOrInterfaceType(fqn));
-        if (clsType.isPrimitiveType()) {
-            clsType = clsType.asPrimitiveType().toBoxedType();
-        }
-        return clsType;
-
     }
 }
