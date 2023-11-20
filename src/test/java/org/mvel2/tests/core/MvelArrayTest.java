@@ -47,11 +47,6 @@ public class MvelArrayTest extends AbstractTest {
             "java.util.Collections.max( list );\n";  // return
 
     public void test1() {
-
-        OptimizerFactory.setDefaultOptimizer("ASM");
-        Serializable compileExpression = MVEL.compileExpression( biglistTestScript );
-        VariableResolverFactory factory = new MapVariableResolverFactory(new HashMap());
-
         int actual = (Integer) eval(biglistTestScript);
         assertEquals( actual, 25);
     }

@@ -2019,6 +2019,9 @@ BodyDeclaration<?> ClassOrInterfaceBodyDeclaration():
             LOOKAHEAD( Type() Identifier() ( ArrayBracketPair() )* ( "," | "=" | ";" ) )
             ret = FieldDeclaration(modifiers)
          |
+            LOOKAHEAD("rule")
+                        ret = RuleDeclaration(modifiers)
+         |
             ret = MethodDeclaration(modifiers)
         )
     )
@@ -6224,12 +6227,12 @@ NodeList<RuleItem> RuleItems():
 {
 
     "{"
-    (
-       (<RULE_OR> {tpe=RuleJoinedPatterns.Type.OR;} |<RULE_AND> {tpe=RuleJoinedPatterns.Type.AND;})
-                        "(" item=JoinedPatterns(tpe) ")" "," { items.add(item); }
-      |  item = RulePattern() { items.add(item); }
-      | <DO> item = RuleConsequence() { items.add(item); }
-    )*
+//    (
+//       (<RULE_OR> {tpe=RuleJoinedPatterns.Type.OR;} |<RULE_AND> {tpe=RuleJoinedPatterns.Type.AND;})
+//                        "(" item=JoinedPatterns(tpe) ")" "," { items.add(item); }
+//      |  item = RulePattern() { items.add(item); }
+//      | <DO> item = RuleConsequence() { items.add(item); }
+//    )*
     "}"
 
     { return items; }

@@ -51,6 +51,8 @@ public interface ParseStart<R> {
 
     ParseStart<CompilationUnit> COMPILATION_UNIT = GeneratedMvelParser::CompilationUnit;
 
+    ParseStart<CompilationUnit> DRLX_COMPILATION_UNIT = GeneratedMvelParser::DrlxCompilationUnit;
+
     ParseStart<BlockStmt> BLOCK = GeneratedMvelParser::BlockParseStart;
 
     ParseStart<Statement> STATEMENT = GeneratedMvelParser::BlockStatementParseStart;
