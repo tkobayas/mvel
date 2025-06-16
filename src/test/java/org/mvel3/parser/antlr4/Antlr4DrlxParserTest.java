@@ -21,6 +21,7 @@ import org.junit.Ignore;
 import org.junit.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mvel3.parser.antlr4.ParserTestUtil.assertParsedExpressionRoundTrip;
 import static org.mvel3.parser.antlr4.ParserTestUtil.getEqualityExpressionContext;
 
 public class Antlr4DrlxParserTest {
@@ -49,182 +50,123 @@ public class Antlr4DrlxParserTest {
     public void testBinaryWithNewLine() {
         String orExpr = "(addresses == 2 ||\n" +
                 "                   addresses == 3  )";
-        ParseTree orTree = Antlr4DrlxParser.parseExpression(orExpr);
-
-        // Verify parsing succeeded and whitespace was handled correctly
-        Mvel3Parser.MvelStartContext startCtx = (Mvel3Parser.MvelStartContext) orTree;
-        assertThat(startCtx).isNotNull();
-        assertThat(startCtx.mvelExpression().getText()).isEqualTo("(addresses==2||addresses==3)");
+        assertParsedExpressionRoundTrip(orExpr);
 
         String andExpr = "(addresses == 2 &&\n addresses == 3  )";
-        ParseTree andTree = Antlr4DrlxParser.parseExpression(andExpr);
-        Mvel3Parser.MvelStartContext andStartCtx = (Mvel3Parser.MvelStartContext) andTree;
-        assertThat(andStartCtx).isNotNull();
-        assertThat(andStartCtx.mvelExpression().getText()).isEqualTo("(addresses==2&&addresses==3)");
+        assertParsedExpressionRoundTrip(andExpr);
     }
 
     @Test
     public void testBinaryWithWindowsNewLine() {
         String orExpr = "(addresses == 2 ||\r\n" +
                 "                   addresses == 3  )";
-        ParseTree orTree = Antlr4DrlxParser.parseExpression(orExpr);
-        Mvel3Parser.MvelStartContext startCtx = (Mvel3Parser.MvelStartContext) orTree;
-        assertThat(startCtx).isNotNull();
-        assertThat(startCtx.mvelExpression().getText()).isEqualTo("(addresses==2||addresses==3)");
+        assertParsedExpressionRoundTrip(orExpr);
 
         String andExpr = "(addresses == 2 &&\r\n addresses == 3  )";
-        ParseTree andTree = Antlr4DrlxParser.parseExpression(andExpr);
-        Mvel3Parser.MvelStartContext andStartCtx = (Mvel3Parser.MvelStartContext) andTree;
-        assertThat(andStartCtx).isNotNull();
-        assertThat(andStartCtx.mvelExpression().getText()).isEqualTo("(addresses==2&&addresses==3)");
+        assertParsedExpressionRoundTrip(andExpr);
     }
 
     @Test
     public void testBinaryWithNewLineBeginning() {
         String orExpr = "(" + System.lineSeparator() + "addresses == 2 || addresses == 3  )";
-        ParseTree orTree = Antlr4DrlxParser.parseExpression(orExpr);
-        Mvel3Parser.MvelStartContext startCtx = (Mvel3Parser.MvelStartContext) orTree;
-        assertThat(startCtx).isNotNull();
-        assertThat(startCtx.mvelExpression().getText()).isEqualTo("(addresses==2||addresses==3)");
+        assertParsedExpressionRoundTrip(orExpr);
 
         String andExpr = "(" + System.lineSeparator() + "addresses == 2 && addresses == 3  )";
-        ParseTree andTree = Antlr4DrlxParser.parseExpression(andExpr);
-        Mvel3Parser.MvelStartContext andStartCtx = (Mvel3Parser.MvelStartContext) andTree;
-        assertThat(andStartCtx).isNotNull();
-        assertThat(andStartCtx.mvelExpression().getText()).isEqualTo("(addresses==2&&addresses==3)");
+        assertParsedExpressionRoundTrip(andExpr);
     }
 
     @Test
     public void testBinaryWithNewLineEnd() {
         String orExpr = "(addresses == 2 || addresses == 3 " + System.lineSeparator() + ")";
-        ParseTree orTree = Antlr4DrlxParser.parseExpression(orExpr);
-        Mvel3Parser.MvelStartContext startCtx = (Mvel3Parser.MvelStartContext) orTree;
-        assertThat(startCtx).isNotNull();
-        assertThat(startCtx.mvelExpression().getText()).isEqualTo("(addresses==2||addresses==3)");
+        assertParsedExpressionRoundTrip(orExpr);
 
         String andExpr = "(addresses == 2 && addresses == 3 " + System.lineSeparator() + ")";
-        ParseTree andTree = Antlr4DrlxParser.parseExpression(andExpr);
-        Mvel3Parser.MvelStartContext andStartCtx = (Mvel3Parser.MvelStartContext) andTree;
-        assertThat(andStartCtx).isNotNull();
-        assertThat(andStartCtx.mvelExpression().getText()).isEqualTo("(addresses==2&&addresses==3)");
+        assertParsedExpressionRoundTrip(andExpr);
     }
 
     @Test
     public void testBinaryWithNewLineBeforeOperator() {
         String andExpr = "(addresses == 2" + System.lineSeparator() + "&& addresses == 3  )";
-        ParseTree andTree = Antlr4DrlxParser.parseExpression(andExpr);
-        Mvel3Parser.MvelStartContext andStartCtx = (Mvel3Parser.MvelStartContext) andTree;
-        assertThat(andStartCtx).isNotNull();
-        assertThat(andStartCtx.mvelExpression().getText()).isEqualTo("(addresses==2&&addresses==3)");
+        assertParsedExpressionRoundTrip(andExpr);
 
         String orExpr = "(addresses == 2" + System.lineSeparator() + "|| addresses == 3  )";
-        ParseTree orTree = Antlr4DrlxParser.parseExpression(orExpr);
-        Mvel3Parser.MvelStartContext orStartCtx = (Mvel3Parser.MvelStartContext) orTree;
-        assertThat(orStartCtx).isNotNull();
-        assertThat(orStartCtx.mvelExpression().getText()).isEqualTo("(addresses==2||addresses==3)");
+        assertParsedExpressionRoundTrip(andExpr);
     }
 
     @Test
     public void testParseSafeCastExpr() {
         String expr = "this instanceof Person && ((Person) this).name == \"Mark\"";
-        ParseTree tree = Antlr4DrlxParser.parseExpression(expr);
-        Mvel3Parser.MvelStartContext startCtx = (Mvel3Parser.MvelStartContext) tree;
-        assertThat(startCtx).isNotNull();
-        assertThat(startCtx.mvelExpression().getText()).isEqualToIgnoringWhitespace(expr);
+        assertParsedExpressionRoundTrip(expr);
     }
 
     @Ignore("Inline Cast is DRLX specific, not MVEL")
     @Test
     public void testParseInlineCastExpr() {
         String expr = "this#Person.name == \"Mark\"";
-        ParseTree tree = Antlr4DrlxParser.parseExpression(expr);
-        Mvel3Parser.MvelStartContext startCtx = (Mvel3Parser.MvelStartContext) tree;
-        assertThat(startCtx).isNotNull();
-        assertThat(startCtx.mvelExpression().getText()).isEqualToIgnoringWhitespace(expr);
+        assertParsedExpressionRoundTrip(expr);
     }
 
     @Ignore("Inline Cast is DRLX specific, not MVEL")
     @Test
     public void testParseInlineCastExpr2() {
         String expr = "address#com.pkg.InternationalAddress.state.length == 5";
-        ParseTree tree = Antlr4DrlxParser.parseExpression(expr);
-        Mvel3Parser.MvelStartContext startCtx = (Mvel3Parser.MvelStartContext) tree;
-        assertThat(startCtx).isNotNull();
-        assertThat(startCtx.mvelExpression().getText()).isEqualToIgnoringWhitespace(expr);
+        assertParsedExpressionRoundTrip(expr);
     }
 
     @Ignore("Inline Cast is DRLX specific, not MVEL")
     @Test
     public void testParseInlineCastExpr3() {
         String expr = "address#org.mvel3.compiler.LongAddress.country.substring(1)";
-        ParseTree tree = Antlr4DrlxParser.parseExpression(expr);
-        Mvel3Parser.MvelStartContext startCtx = (Mvel3Parser.MvelStartContext) tree;
-        assertThat(startCtx).isNotNull();
-        assertThat(startCtx.mvelExpression().getText()).isEqualToIgnoringWhitespace(expr);
+        assertParsedExpressionRoundTrip(expr);
     }
 
     @Ignore("Inline Cast is DRLX specific, not MVEL")
     @Test
     public void testParseInlineCastExpr4() {
         String expr = "address#com.pkg.InternationalAddress.getState().length == 5";
-        ParseTree tree = Antlr4DrlxParser.parseExpression(expr);
-        Mvel3Parser.MvelStartContext startCtx = (Mvel3Parser.MvelStartContext) tree;
-        assertThat(startCtx).isNotNull();
-        assertThat(startCtx.mvelExpression().getText()).isEqualToIgnoringWhitespace(expr);
+        assertParsedExpressionRoundTrip(expr);
     }
 
     @Ignore("`!.` Null Safe Dereferencing is DRLX specific, not MVEL. Mvel2 has `.?` syntax, but skipping for now")
     @Test
     public void testParseNullSafeFieldAccessExpr() {
         String expr = "person!.name == \"Mark\"";
-        ParseTree tree = Antlr4DrlxParser.parseExpression(expr);
-        Mvel3Parser.MvelStartContext startCtx = (Mvel3Parser.MvelStartContext) tree;
-        assertThat(startCtx).isNotNull();
-        assertThat(startCtx.mvelExpression().getText()).isEqualToIgnoringWhitespace(expr);
+        assertParsedExpressionRoundTrip(expr);
     }
 
     @Ignore("Custom Operator is DRLX specific, not MVEL")
     @Test
     public void testDotFreeExpr() {
         String expr = "this after $a";
-        ParseTree tree = Antlr4DrlxParser.parseExpression(expr);
-        Mvel3Parser.MvelStartContext startCtx = (Mvel3Parser.MvelStartContext) tree;
-        assertThat(startCtx).isNotNull();
-        assertThat(startCtx.mvelExpression().getText()).isEqualToIgnoringWhitespace(expr);
+        assertParsedExpressionRoundTrip(expr);
     }
 
     @Ignore("Custom Operator is DRLX specific, not MVEL")
     @Test
     public void testDotFreeEnclosed() {
         String expr = "(this after $a)";
-        ParseTree tree = Antlr4DrlxParser.parseExpression(expr);
-        Mvel3Parser.MvelStartContext startCtx = (Mvel3Parser.MvelStartContext) tree;
-        assertThat(startCtx).isNotNull();
-        assertThat(startCtx.mvelExpression().getText()).isEqualToIgnoringWhitespace(expr);
+        assertParsedExpressionRoundTrip(expr);
     }
 
     @Ignore("Custom Operator is DRLX specific, not MVEL")
     @Test
     public void testDotFreeEnclosedWithNameExpr() {
         String expr = "(something after $a)";
-        ParseTree tree = Antlr4DrlxParser.parseExpression(expr);
-        Mvel3Parser.MvelStartContext startCtx = (Mvel3Parser.MvelStartContext) tree;
-        assertThat(startCtx).isNotNull();
-        assertThat(startCtx.mvelExpression().getText()).isEqualToIgnoringWhitespace(expr);
+        assertParsedExpressionRoundTrip(expr);
     }
 
     @Test
     public void testLiteral() {
         String bigDecimalLiteral = "bigDecimal < 50B";
-        ParseTree bigDecimalTree = Antlr4DrlxParser.parseExpression(bigDecimalLiteral);
-        Mvel3Parser.MvelStartContext startCtx = (Mvel3Parser.MvelStartContext) bigDecimalTree;
-        assertThat(startCtx).isNotNull();
-        assertThat(startCtx.mvelExpression().getText()).isEqualTo("bigDecimal<50B");
+        assertParsedExpressionRoundTrip(bigDecimalLiteral);
 
         String bigIntegerLiteral = "bigInteger == 50I";
-        ParseTree bigIntegerTree = Antlr4DrlxParser.parseExpression(bigIntegerLiteral);
-        Mvel3Parser.MvelStartContext bigIntStartCtx = (Mvel3Parser.MvelStartContext) bigIntegerTree;
-        assertThat(bigIntStartCtx).isNotNull();
-        assertThat(bigIntStartCtx.mvelExpression().getText()).isEqualTo("bigInteger==50I");
+        assertParsedExpressionRoundTrip(bigIntegerLiteral);
+    }
+
+    @Test
+    public void testBigDecimalLiteral() {
+        String expr = "12.111B";
+        assertParsedExpressionRoundTrip(expr);
     }
 }
