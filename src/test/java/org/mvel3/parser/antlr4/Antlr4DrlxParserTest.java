@@ -16,11 +16,15 @@
 
 package org.mvel3.parser.antlr4;
 
+import com.github.javaparser.ast.expr.Expression;
 import org.antlr.v4.runtime.tree.ParseTree;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mvel3.parser.DrlxParser.parseExpression;
 import static org.mvel3.parser.antlr4.ParserTestUtil.getEqualityExpressionContext;
+import static org.mvel3.parser.printer.PrintUtil.printNode;
 
 public class Antlr4DrlxParserTest {
 
@@ -134,4 +138,50 @@ public class Antlr4DrlxParserTest {
         assertThat(startCtx).isNotNull();
         assertThat(startCtx.mvelExpression().getText()).isEqualTo("thisinstanceofPerson&&((Person)this).name==\"Mark\"");
     }
+
+    @Ignore("Inline Cast is DRLX specific, not MVEL")
+    @Test
+    public void testParseInlineCastExpr() {
+        String expr = "this#Person.name == \"Mark\"";
+        ParseTree tree = Antlr4DrlxParser.parseExpression(expr);
+
+        Mvel3Parser.MvelStartContext startCtx = (Mvel3Parser.MvelStartContext) tree;
+        assertThat(startCtx).isNotNull();
+        assertThat(startCtx.mvelExpression().getText()).isEqualTo("this#Person.name==\"Mark\"");
+    }
+
+    @Ignore("Inline Cast is DRLX specific, not MVEL")
+    @Test
+    public void testParseInlineCastExpr2() {
+        String expr = "address#com.pkg.InternationalAddress.state.length == 5";
+        ParseTree tree = Antlr4DrlxParser.parseExpression(expr);
+
+        Mvel3Parser.MvelStartContext startCtx = (Mvel3Parser.MvelStartContext) tree;
+        assertThat(startCtx).isNotNull();
+        assertThat(startCtx.mvelExpression().getText()).isEqualTo("address#com.pkg.InternationalAddress.state.length==5");
+    }
+
+    @Ignore("Inline Cast is DRLX specific, not MVEL")
+    @Test
+    public void testParseInlineCastExpr3() {
+        String expr = "address#org.mvel3.compiler.LongAddress.country.substring(1)";
+        ParseTree tree = Antlr4DrlxParser.parseExpression(expr);
+
+        Mvel3Parser.MvelStartContext startCtx = (Mvel3Parser.MvelStartContext) tree;
+        assertThat(startCtx).isNotNull();
+        assertThat(startCtx.mvelExpression().getText()).isEqualTo("address#org.mvel3.compiler.LongAddress.country.substring(1)");
+    }
+
+    @Ignore("Inline Cast is DRLX specific, not MVEL")
+    @Test
+    public void testParseInlineCastExpr4() {
+        String expr = "address#com.pkg.InternationalAddress.getState().length == 5";
+        ParseTree tree = Antlr4DrlxParser.parseExpression(expr);
+
+        Mvel3Parser.MvelStartContext startCtx = (Mvel3Parser.MvelStartContext) tree;
+        assertThat(startCtx).isNotNull();
+        assertThat(startCtx.mvelExpression().getText()).isEqualTo("address#com.pkg.InternationalAddress.getState().length==5");
+    }
+
+
 }
