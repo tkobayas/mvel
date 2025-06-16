@@ -5,7 +5,6 @@ import com.github.javaparser.resolution.TypeSolver;
 import com.github.javaparser.symbolsolver.JavaSymbolSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver;
 import org.junit.Test;
-import org.mvel2.tests.core.AbstractTest;
 import org.mvel3.parser.MvelParser;
 import org.mvel3.transpiler.DRLXTranspiler;
 
