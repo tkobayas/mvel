@@ -20,6 +20,9 @@ import org.antlr.v4.runtime.tree.ParseTree;
 import org.junit.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mvel3.parser.antlr4.ParserTestUtil.getEqualityExpressionContext;
+import static org.mvel3.parser.antlr4.ParserTestUtil.getLogicalAndExpressionContext;
+import static org.mvel3.parser.antlr4.ParserTestUtil.getLogicalOrExpressionContext;
 
 public class Antlr4DrlxParserTest {
 
@@ -32,21 +35,33 @@ public class Antlr4DrlxParserTest {
 
         // Should have two relational expressions (left and right of ==)
         assertThat(eqCtx.relationalExpression().size()).isEqualTo(2);
-        
+
         // Left side should be "name"
         String leftSide = eqCtx.relationalExpression(0).getText();
         assertThat(leftSide).isEqualTo("name");
-        
+
         // Right side should be "Mark" 
         String rightSide = eqCtx.relationalExpression(1).getText();
         assertThat(rightSide).isEqualTo("\"Mark\"");
     }
 
-    private static Mvel3Parser.EqualityExpressionContext getEqualityExpressionContext(Mvel3Parser.MvelStartContext tree) {
-        Mvel3Parser.MvelExpressionContext exprCtx = tree.mvelExpression();
-        Mvel3Parser.ConditionalExpressionContext condCtx = exprCtx.conditionalExpression();
-        Mvel3Parser.LogicalOrExpressionContext orCtx = condCtx.logicalOrExpression();
-        Mvel3Parser.LogicalAndExpressionContext andCtx = orCtx.logicalAndExpression(0);
-        return andCtx.equalityExpression(0);
+    @Test
+    public void testBinaryWithNewLine() {
+        String orExpr = "(addresses == 2 ||\n" +
+                "                   addresses == 3  )";
+        ParseTree orTree = Antlr4DrlxParser.parseExpression(orExpr);
+
+        Mvel3Parser.LogicalOrExpressionContext orCtx = getLogicalOrExpressionContext((Mvel3Parser.MvelStartContext) orTree);
+        assertThat(orCtx.logicalAndExpression().size()).isEqualTo(2);
+        assertThat(orCtx.logicalAndExpression(0).getText()).isEqualTo("addresses==2");
+        assertThat(orCtx.logicalAndExpression(1).getText()).isEqualTo("addresses==3");
+
+        String andExpr = "(addresses == 2 &&\n addresses == 3  )";
+        ParseTree andTree = Antlr4DrlxParser.parseExpression(andExpr);
+
+        Mvel3Parser.LogicalAndExpressionContext andCtx = getLogicalAndExpressionContext((Mvel3Parser.MvelStartContext) andTree);
+        assertThat(andCtx.equalityExpression().size()).isEqualTo(2);
+        assertThat(andCtx.equalityExpression(0).getText()).isEqualTo("addresses==2");
+        assertThat(andCtx.equalityExpression(1).getText()).isEqualTo("addresses==3");
     }
 }
