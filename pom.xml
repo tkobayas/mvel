@@ -252,6 +252,25 @@
                 </configuration>
             </plugin>
 
+            <!-- finally, this javacc plugin will be removed -->
+            <plugin>
+                <groupId>com.helger.maven</groupId>
+                <artifactId>ph-javacc-maven-plugin</artifactId>
+                <version>4.1.2</version>
+                <executions>
+                    <execution>
+                        <id>javacc</id>
+                        <goals>
+                            <goal>javacc</goal>
+                        </goals>
+                        <configuration>
+                            <grammarEncoding>${project.build.sourceEncoding}</grammarEncoding>
+                            <jdkVersion>${java.version}</jdkVersion>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
             <plugin>
                 <groupId>org.antlr</groupId>
                 <artifactId>antlr4-maven-plugin</artifactId>
