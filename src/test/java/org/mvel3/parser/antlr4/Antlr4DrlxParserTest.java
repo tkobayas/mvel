@@ -16,15 +16,12 @@
 
 package org.mvel3.parser.antlr4;
 
-import com.github.javaparser.ast.expr.Expression;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.junit.Ignore;
 import org.junit.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mvel3.parser.DrlxParser.parseExpression;
 import static org.mvel3.parser.antlr4.ParserTestUtil.getEqualityExpressionContext;
-import static org.mvel3.parser.printer.PrintUtil.printNode;
 
 public class Antlr4DrlxParserTest {
 
@@ -129,14 +126,11 @@ public class Antlr4DrlxParserTest {
 
     @Test
     public void testParseSafeCastExpr() {
-        // Test the original expression now that we use full Java grammar
         String expr = "this instanceof Person && ((Person) this).name == \"Mark\"";
         ParseTree tree = Antlr4DrlxParser.parseExpression(expr);
-
-        // Verify that the expression parses successfully and get the top-level AND context
         Mvel3Parser.MvelStartContext startCtx = (Mvel3Parser.MvelStartContext) tree;
         assertThat(startCtx).isNotNull();
-        assertThat(startCtx.mvelExpression().getText()).isEqualTo("thisinstanceofPerson&&((Person)this).name==\"Mark\"");
+        assertThat(startCtx.mvelExpression().getText()).isEqualToIgnoringWhitespace(expr);
     }
 
     @Ignore("Inline Cast is DRLX specific, not MVEL")
@@ -144,10 +138,9 @@ public class Antlr4DrlxParserTest {
     public void testParseInlineCastExpr() {
         String expr = "this#Person.name == \"Mark\"";
         ParseTree tree = Antlr4DrlxParser.parseExpression(expr);
-
         Mvel3Parser.MvelStartContext startCtx = (Mvel3Parser.MvelStartContext) tree;
         assertThat(startCtx).isNotNull();
-        assertThat(startCtx.mvelExpression().getText()).isEqualTo("this#Person.name==\"Mark\"");
+        assertThat(startCtx.mvelExpression().getText()).isEqualToIgnoringWhitespace(expr);
     }
 
     @Ignore("Inline Cast is DRLX specific, not MVEL")
@@ -155,10 +148,9 @@ public class Antlr4DrlxParserTest {
     public void testParseInlineCastExpr2() {
         String expr = "address#com.pkg.InternationalAddress.state.length == 5";
         ParseTree tree = Antlr4DrlxParser.parseExpression(expr);
-
         Mvel3Parser.MvelStartContext startCtx = (Mvel3Parser.MvelStartContext) tree;
         assertThat(startCtx).isNotNull();
-        assertThat(startCtx.mvelExpression().getText()).isEqualTo("address#com.pkg.InternationalAddress.state.length==5");
+        assertThat(startCtx.mvelExpression().getText()).isEqualToIgnoringWhitespace(expr);
     }
 
     @Ignore("Inline Cast is DRLX specific, not MVEL")
@@ -166,10 +158,9 @@ public class Antlr4DrlxParserTest {
     public void testParseInlineCastExpr3() {
         String expr = "address#org.mvel3.compiler.LongAddress.country.substring(1)";
         ParseTree tree = Antlr4DrlxParser.parseExpression(expr);
-
         Mvel3Parser.MvelStartContext startCtx = (Mvel3Parser.MvelStartContext) tree;
         assertThat(startCtx).isNotNull();
-        assertThat(startCtx.mvelExpression().getText()).isEqualTo("address#org.mvel3.compiler.LongAddress.country.substring(1)");
+        assertThat(startCtx.mvelExpression().getText()).isEqualToIgnoringWhitespace(expr);
     }
 
     @Ignore("Inline Cast is DRLX specific, not MVEL")
@@ -177,11 +168,48 @@ public class Antlr4DrlxParserTest {
     public void testParseInlineCastExpr4() {
         String expr = "address#com.pkg.InternationalAddress.getState().length == 5";
         ParseTree tree = Antlr4DrlxParser.parseExpression(expr);
-
         Mvel3Parser.MvelStartContext startCtx = (Mvel3Parser.MvelStartContext) tree;
         assertThat(startCtx).isNotNull();
-        assertThat(startCtx.mvelExpression().getText()).isEqualTo("address#com.pkg.InternationalAddress.getState().length==5");
+        assertThat(startCtx.mvelExpression().getText()).isEqualToIgnoringWhitespace(expr);
     }
 
+    @Ignore("`!.` Null Safe Dereferencing is DRLX specific, not MVEL. Mvel2 has `.?` syntax, but skipping for now")
+    @Test
+    public void testParseNullSafeFieldAccessExpr() {
+        String expr = "person!.name == \"Mark\"";
+        ParseTree tree = Antlr4DrlxParser.parseExpression(expr);
+        Mvel3Parser.MvelStartContext startCtx = (Mvel3Parser.MvelStartContext) tree;
+        assertThat(startCtx).isNotNull();
+        assertThat(startCtx.mvelExpression().getText()).isEqualToIgnoringWhitespace(expr);
+    }
 
+    @Ignore("Custom Operator is DRLX specific, not MVEL")
+    @Test
+    public void testDotFreeExpr() {
+        String expr = "this after $a";
+        ParseTree tree = Antlr4DrlxParser.parseExpression(expr);
+        Mvel3Parser.MvelStartContext startCtx = (Mvel3Parser.MvelStartContext) tree;
+        assertThat(startCtx).isNotNull();
+        assertThat(startCtx.mvelExpression().getText()).isEqualToIgnoringWhitespace(expr);
+    }
+
+    @Ignore("Custom Operator is DRLX specific, not MVEL")
+    @Test
+    public void testDotFreeEnclosed() {
+        String expr = "(this after $a)";
+        ParseTree tree = Antlr4DrlxParser.parseExpression(expr);
+        Mvel3Parser.MvelStartContext startCtx = (Mvel3Parser.MvelStartContext) tree;
+        assertThat(startCtx).isNotNull();
+        assertThat(startCtx.mvelExpression().getText()).isEqualToIgnoringWhitespace(expr);
+    }
+
+    @Ignore("Custom Operator is DRLX specific, not MVEL")
+    @Test
+    public void testDotFreeEnclosedWithNameExpr() {
+        String expr = "(something after $a)";
+        ParseTree tree = Antlr4DrlxParser.parseExpression(expr);
+        Mvel3Parser.MvelStartContext startCtx = (Mvel3Parser.MvelStartContext) tree;
+        assertThat(startCtx).isNotNull();
+        assertThat(startCtx.mvelExpression().getText()).isEqualToIgnoringWhitespace(expr);
+    }
 }
