@@ -253,18 +253,21 @@
             </plugin>
 
             <plugin>
-                <groupId>com.helger.maven</groupId>
-                <artifactId>ph-javacc-maven-plugin</artifactId>
-                <version>4.1.2</version>
+                <groupId>org.antlr</groupId>
+                <artifactId>antlr4-maven-plugin</artifactId>
+                <version>4.13.1</version>
                 <executions>
                     <execution>
-                        <id>javacc</id>
+                        <id>antlr</id>
                         <goals>
-                            <goal>javacc</goal>
+                            <goal>antlr4</goal>
                         </goals>
                         <configuration>
-                            <grammarEncoding>${project.build.sourceEncoding}</grammarEncoding>
-                            <jdkVersion>${java.version}</jdkVersion>
+                            <sourceDirectory>src/main/antlr4</sourceDirectory>
+                            <outputDirectory>target/generated-sources/antlr4</outputDirectory>
+                            <libDirectory>src/main/antlr4/org/mvel3/parser/antlr4</libDirectory>
+                            <visitor>true</visitor>
+                            <listener>true</listener>
                         </configuration>
                     </execution>
                 </executions>
@@ -283,6 +286,7 @@
                         <configuration>
                             <sources>
                                 <source>src/main/javacc-support</source>
+                                <source>target/generated-sources/antlr4</source>
                             </sources>
                         </configuration>
                     </execution>
@@ -320,6 +324,11 @@
             <version>9.5</version>
         </dependency>
 
+        <dependency>
+            <groupId>org.antlr</groupId>
+            <artifactId>antlr4-runtime</artifactId>
+            <version>4.13.1</version>
+        </dependency>
 
         <dependency>
             <groupId>org.apache.commons</groupId>
