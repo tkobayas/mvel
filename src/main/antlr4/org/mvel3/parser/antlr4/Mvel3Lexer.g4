@@ -14,7 +14,3 @@ FOREACH   : 'foreach';
 MODIFY    : 'modify';
 WITH      : 'with';
 
-// MVEL operators
-PROJECTOR : '.{';
-SELECTFIRST : '.^{';
-SELECTLAST : '.${';

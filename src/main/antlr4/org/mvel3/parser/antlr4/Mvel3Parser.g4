@@ -65,9 +65,6 @@ postfixOp
     : DOT identifier                                    // field access
     | DOT identifier LPAREN argumentList? RPAREN       // method call
     | LBRACK expression RBRACK                          // array access
-    | PROJECTOR expression RBRACE                       // MVEL projection
-    | SELECTFIRST expression RBRACE                     // MVEL select first
-    | SELECTLAST expression RBRACE                      // MVEL select last
     ;
 
 // Primary expressions
