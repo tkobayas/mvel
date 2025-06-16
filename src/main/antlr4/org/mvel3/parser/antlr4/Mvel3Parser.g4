@@ -17,3 +17,16 @@ mvelStart
 mvelExpression
     : conditionalExpression
     ;
+
+// Override literal to include MVEL-specific BigDecimal and BigInteger literals
+literal
+    : IntegerLiteral
+    | FloatingPointLiteral
+    | BooleanLiteral
+    | CharacterLiteral
+    | StringLiteral
+    | TextBlock
+    | NullLiteral
+    | BigDecimalLiteral
+    | BigIntegerLiteral
+    ;

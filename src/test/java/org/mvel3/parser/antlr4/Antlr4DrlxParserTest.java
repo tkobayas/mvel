@@ -212,4 +212,19 @@ public class Antlr4DrlxParserTest {
         assertThat(startCtx).isNotNull();
         assertThat(startCtx.mvelExpression().getText()).isEqualToIgnoringWhitespace(expr);
     }
+
+    @Test
+    public void testLiteral() {
+        String bigDecimalLiteral = "bigDecimal < 50B";
+        ParseTree bigDecimalTree = Antlr4DrlxParser.parseExpression(bigDecimalLiteral);
+        Mvel3Parser.MvelStartContext startCtx = (Mvel3Parser.MvelStartContext) bigDecimalTree;
+        assertThat(startCtx).isNotNull();
+        assertThat(startCtx.mvelExpression().getText()).isEqualTo("bigDecimal<50B");
+
+        String bigIntegerLiteral = "bigInteger == 50I";
+        ParseTree bigIntegerTree = Antlr4DrlxParser.parseExpression(bigIntegerLiteral);
+        Mvel3Parser.MvelStartContext bigIntStartCtx = (Mvel3Parser.MvelStartContext) bigIntegerTree;
+        assertThat(bigIntStartCtx).isNotNull();
+        assertThat(bigIntStartCtx.mvelExpression().getText()).isEqualTo("bigInteger==50I");
+    }
 }

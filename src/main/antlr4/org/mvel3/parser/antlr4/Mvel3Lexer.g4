@@ -14,3 +14,15 @@ FOREACH   : 'foreach';
 MODIFY    : 'modify';
 WITH      : 'with';
 
+// MVEL-specific literals (defined to avoid conflicts with imported tokens)
+// BigDecimal literals with 'B' suffix
+BigDecimalLiteral
+    : DecimalNumeral [bB]
+    | DecimalFloatingPointLiteral [bB]
+    ;
+
+// BigInteger literals with 'I' suffix  
+BigIntegerLiteral
+    : DecimalNumeral [iI]
+    ;
+
