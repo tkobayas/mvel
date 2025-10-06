@@ -423,4 +423,23 @@
         </snapshotRepository>
     </distributionManagement>
 
+    <!-- before running javaparser metamodel generation, run `mvn clean install -Pcompiler-parameters -DskipTests` -->
+    <profiles>
+        <profile>
+            <id>compiler-parameters</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <version>3.14.1</version>
+                        <configuration>
+                            <parameters>true</parameters>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+
 </project>
