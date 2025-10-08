@@ -21,7 +21,6 @@
  *
  * Modified by Red Hat, Inc.
  */
-
 package org.mvel3.parser.ast.expr;
 
 import com.github.javaparser.TokenRange;
@@ -39,14 +38,13 @@ import com.github.javaparser.ast.visitor.GenericVisitor;
 import com.github.javaparser.ast.visitor.VoidVisitor;
 import org.mvel3.parser.ast.visitor.DrlGenericVisitor;
 import org.mvel3.parser.ast.visitor.DrlVoidVisitor;
-
 import java.util.Optional;
 import java.util.function.Consumer;
-
 import static com.github.javaparser.utils.Utils.assertNotNull;
+import com.github.javaparser.metamodel.InlineCastExprMetaModel;
+import com.github.javaparser.metamodel.JavaParserMetaModel;
 
-public class InlineCastExpr extends Expression implements NodeWithType<InlineCastExpr, Type>,
-                                                          NodeWithExpression<InlineCastExpr> {
+public class InlineCastExpr extends Expression implements NodeWithType<InlineCastExpr, Type>, NodeWithExpression<InlineCastExpr> {
 
     private Type type;
 
@@ -84,14 +82,13 @@ public class InlineCastExpr extends Expression implements NodeWithType<InlineCas
 
     @Generated("com.github.javaparser.generator.core.node.PropertyGenerator")
     public InlineCastExpr setExpression(final Expression expression) {
-    	assertNotNull(expression);
+        assertNotNull(expression);
         if (expression == this.expression) {
             return this;
         }
         notifyPropertyChange(ObservableProperty.EXPRESSION, this.expression, expression);
-        if (this.expression != null) {
+        if (this.expression != null)
             this.expression.setParentNode(null);
-        }
         this.expression = expression;
         setAsParentNodeOf(expression);
         return this;
@@ -104,21 +101,11 @@ public class InlineCastExpr extends Expression implements NodeWithType<InlineCas
             return this;
         }
         notifyPropertyChange(ObservableProperty.TYPE, this.type, type);
-        if (this.type != null) {
+        if (this.type != null)
             this.type.setParentNode(null);
-        }
         this.type = type;
         setAsParentNodeOf(type);
         return this;
-    }
-
-    @Override
-    @Generated("com.github.javaparser.generator.core.node.RemoveMethodGenerator")
-    public boolean remove(Node node) {
-        if (node == null) {
-            return false;
-        }
-        return super.remove(node);
     }
 
     @Override
@@ -144,6 +131,7 @@ public class InlineCastExpr extends Expression implements NodeWithType<InlineCas
         return super.replace(node, replacementNode);
     }
 
+    @Override
     @Generated("com.github.javaparser.generator.core.node.TypeCastingGenerator")
     public InlineCastExpr asInlineCastExpr() {
         return this;
@@ -154,21 +142,31 @@ public class InlineCastExpr extends Expression implements NodeWithType<InlineCas
         action.accept(this);
     }
 
+    @Override
     @Generated("com.github.javaparser.generator.core.node.TypeCastingGenerator")
     public Optional<InlineCastExpr> toInlineCastExpr() {
         return Optional.of(this);
     }
 
     @Override
-    public <R, A> R accept(GenericVisitor<R, A> v, A arg) {
-        return ((DrlGenericVisitor<R, A>)v).visit(this, arg);
+    @Generated("com.github.javaparser.generator.core.node.AcceptGenerator")
+    public <R, A> R accept(final GenericVisitor<R, A> v, final A arg) {
+        return v.visit(this, arg);
     }
 
     @Override
-    public <A> void accept(VoidVisitor<A> v, A arg) {
-        if (v instanceof DrlVoidVisitor) {
-            ((DrlVoidVisitor<A>) v).visit(this, arg);
-        }
+    @Generated("com.github.javaparser.generator.core.node.AcceptGenerator")
+    public <A> void accept(final VoidVisitor<A> v, final A arg) {
+        v.visit(this, arg);
     }
 
+    @Override
+    public boolean isInlineCastExpr() {
+        return true;
+    }
+
+    @Override
+    public InlineCastExprMetaModel getMetaModel() {
+        return JavaParserMetaModel.inlineCastExprMetaModel;
+    }
 }
